@@ -34,9 +34,9 @@
 
 ### GPUI 依赖
 
-`gpui-base` / `gpui-component` 固定为官方 0.7.3，底层使用 `gpui-pre 0.3.9`。根 `Cargo.toml` 将相关 GPUI 包统一指向 `amtoaer/zed@b53d2343`，避免应用与组件各自使用不同来源的实体、窗口和绘制类型。
+`gpui-base` / `gpui-component` 固定为官方 0.7.3，底层使用 `gpui-pre 0.3.9`。相关 GPUI 源码以快照形式放在 [vendor/gpui](../vendor/gpui)，来自 `amtoaer/zed@a417dfb`；根 `Cargo.toml` 通过 `[patch.crates-io]` 指向本地路径，避免应用与组件使用不同来源的实体、窗口和绘制类型。
 
-该依赖分支从官方快照 `93d74566` 迁移 Cadence 的局部重绘、动态非活动帧率、字形变换和可变字体补丁，再通过组件仓库的官方导出脚本生成独立工作区；原 Wayland 帧循环补丁已被上游包含。补丁及生成方式记录在依赖仓库的 [LYRUNE-GPUI.md](https://github.com/amtoaer/zed/blob/b53d2343e5b238ca090fa321187180d3e37f7d7c/LYRUNE-GPUI.md)。升级时需一并检查这些补丁，不能仅替换组件版本。
+该快照从官方 `93d74566` 导出，包含 Cadence 需要的局部重绘、动态非活动帧率、字形变换和可变字体补丁；Wayland 帧循环补丁已被上游包含。补丁及生成方式见 [LYRUNE-GPUI.md](../vendor/gpui/LYRUNE-GPUI.md)。升级时按 [vendor/README.md](../vendor/README.md) 重新获取快照，并检查 `[patch.crates-io]` 的路径列表。
 
 ### 工作区与协议库
 

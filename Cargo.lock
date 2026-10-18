@@ -881,6 +881,77 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "fc652a48c352aef3ea3aed32080501cf3ef6ed5da78602a020c991775b0aff04"
 
 [[package]]
+name = "cadence"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "ashpd",
+ "bytes",
+ "cadence-api",
+ "cadence-decrypt",
+ "directories",
+ "futures-util",
+ "gpui-base",
+ "gpui-component",
+ "gpui-pre",
+ "gpui-pre-platform",
+ "hashbrown 0.17.1",
+ "image",
+ "keyring",
+ "ksni",
+ "lru",
+ "mpris-server",
+ "palette",
+ "qrcode",
+ "quick-xml",
+ "reqwest",
+ "resvg 0.46.0",
+ "rodio",
+ "rqrr",
+ "rustls",
+ "serde",
+ "serde_json",
+ "stream-download",
+ "tokio",
+ "tokio-util",
+ "tray-icon",
+ "wana_kana",
+ "xxhash-rust",
+ "zbus_systemd",
+]
+
+[[package]]
+name = "cadence-api"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "arc-swap",
+ "async-tungstenite",
+ "base64",
+ "bytes",
+ "flate2",
+ "futures-util",
+ "hex",
+ "rand 0.10.2",
+ "reqwest",
+ "rumqttc",
+ "rustls",
+ "serde",
+ "serde_json",
+ "sha1",
+ "thiserror 2.0.20",
+ "tokio",
+ "uuid",
+]
+
+[[package]]
+name = "cadence-decrypt"
+version = "0.1.0"
+dependencies = [
+ "base64",
+]
+
+[[package]]
 name = "calloop"
 version = "0.14.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2567,7 +2638,6 @@ dependencies = [
 [[package]]
 name = "gpui-pre"
 version = "0.3.9"
-source = "git+https://github.com/amtoaer/zed?rev=a417dfbfbb89b5a90e69b22ee593456301c37fe9#a417dfbfbb89b5a90e69b22ee593456301c37fe9"
 dependencies = [
  "accesskit",
  "anyhow",
@@ -2635,7 +2705,6 @@ dependencies = [
 [[package]]
 name = "gpui-pre-apple"
 version = "0.3.9"
-source = "git+https://github.com/amtoaer/zed?rev=a417dfbfbb89b5a90e69b22ee593456301c37fe9#a417dfbfbb89b5a90e69b22ee593456301c37fe9"
 dependencies = [
  "anyhow",
  "async-task",
@@ -2676,7 +2745,6 @@ dependencies = [
 [[package]]
 name = "gpui-pre-collections"
 version = "0.3.9"
-source = "git+https://github.com/amtoaer/zed?rev=a417dfbfbb89b5a90e69b22ee593456301c37fe9#a417dfbfbb89b5a90e69b22ee593456301c37fe9"
 dependencies = [
  "gpui-pre-util",
  "indexmap",
@@ -2686,7 +2754,6 @@ dependencies = [
 [[package]]
 name = "gpui-pre-derive-refineable"
 version = "0.3.9"
-source = "git+https://github.com/amtoaer/zed?rev=a417dfbfbb89b5a90e69b22ee593456301c37fe9#a417dfbfbb89b5a90e69b22ee593456301c37fe9"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -2696,7 +2763,6 @@ dependencies = [
 [[package]]
 name = "gpui-pre-http-client"
 version = "0.3.9"
-source = "git+https://github.com/amtoaer/zed?rev=a417dfbfbb89b5a90e69b22ee593456301c37fe9#a417dfbfbb89b5a90e69b22ee593456301c37fe9"
 dependencies = [
  "anyhow",
  "bytes",
@@ -2714,7 +2780,6 @@ dependencies = [
 [[package]]
 name = "gpui-pre-linux"
 version = "0.3.9"
-source = "git+https://github.com/amtoaer/zed?rev=a417dfbfbb89b5a90e69b22ee593456301c37fe9#a417dfbfbb89b5a90e69b22ee593456301c37fe9"
 dependencies = [
  "accesskit",
  "accesskit_unix",
@@ -2758,7 +2823,6 @@ dependencies = [
 [[package]]
 name = "gpui-pre-macos"
 version = "0.3.9"
-source = "git+https://github.com/amtoaer/zed?rev=a417dfbfbb89b5a90e69b22ee593456301c37fe9#a417dfbfbb89b5a90e69b22ee593456301c37fe9"
 dependencies = [
  "accesskit",
  "accesskit_macos",
@@ -2797,7 +2861,6 @@ dependencies = [
 [[package]]
 name = "gpui-pre-macros"
 version = "0.3.9"
-source = "git+https://github.com/amtoaer/zed?rev=a417dfbfbb89b5a90e69b22ee593456301c37fe9#a417dfbfbb89b5a90e69b22ee593456301c37fe9"
 dependencies = [
  "heck 0.5.0",
  "proc-macro-crate",
@@ -2809,7 +2872,6 @@ dependencies = [
 [[package]]
 name = "gpui-pre-platform"
 version = "0.3.9"
-source = "git+https://github.com/amtoaer/zed?rev=a417dfbfbb89b5a90e69b22ee593456301c37fe9#a417dfbfbb89b5a90e69b22ee593456301c37fe9"
 dependencies = [
  "anyhow",
  "console_error_panic_hook",
@@ -2823,7 +2885,6 @@ dependencies = [
 [[package]]
 name = "gpui-pre-refineable"
 version = "0.3.9"
-source = "git+https://github.com/amtoaer/zed?rev=a417dfbfbb89b5a90e69b22ee593456301c37fe9#a417dfbfbb89b5a90e69b22ee593456301c37fe9"
 dependencies = [
  "gpui-pre-derive-refineable",
 ]
@@ -2881,7 +2942,6 @@ dependencies = [
 [[package]]
 name = "gpui-pre-scheduler"
 version = "0.3.9"
-source = "git+https://github.com/amtoaer/zed?rev=a417dfbfbb89b5a90e69b22ee593456301c37fe9#a417dfbfbb89b5a90e69b22ee593456301c37fe9"
 dependencies = [
  "async-task",
  "backtrace",
@@ -2897,7 +2957,6 @@ dependencies = [
 [[package]]
 name = "gpui-pre-shared-string"
 version = "0.3.9"
-source = "git+https://github.com/amtoaer/zed?rev=a417dfbfbb89b5a90e69b22ee593456301c37fe9#a417dfbfbb89b5a90e69b22ee593456301c37fe9"
 dependencies = [
  "schemars",
  "serde",
@@ -2907,7 +2966,6 @@ dependencies = [
 [[package]]
 name = "gpui-pre-sum-tree"
 version = "0.3.9"
-source = "git+https://github.com/amtoaer/zed?rev=a417dfbfbb89b5a90e69b22ee593456301c37fe9#a417dfbfbb89b5a90e69b22ee593456301c37fe9"
 dependencies = [
  "gpui-pre-ztracing",
  "heapless",
@@ -2918,7 +2976,6 @@ dependencies = [
 [[package]]
 name = "gpui-pre-util"
 version = "0.3.9"
-source = "git+https://github.com/amtoaer/zed?rev=a417dfbfbb89b5a90e69b22ee593456301c37fe9#a417dfbfbb89b5a90e69b22ee593456301c37fe9"
 dependencies = [
  "anyhow",
  "log",
@@ -2928,7 +2985,6 @@ dependencies = [
 [[package]]
 name = "gpui-pre-web"
 version = "0.3.9"
-source = "git+https://github.com/amtoaer/zed?rev=a417dfbfbb89b5a90e69b22ee593456301c37fe9#a417dfbfbb89b5a90e69b22ee593456301c37fe9"
 dependencies = [
  "anyhow",
  "async-channel",
@@ -2957,7 +3013,6 @@ dependencies = [
 [[package]]
 name = "gpui-pre-wgpu"
 version = "0.3.9"
-source = "git+https://github.com/amtoaer/zed?rev=a417dfbfbb89b5a90e69b22ee593456301c37fe9#a417dfbfbb89b5a90e69b22ee593456301c37fe9"
 dependencies = [
  "anyhow",
  "bytemuck",
@@ -2983,7 +3038,6 @@ dependencies = [
 [[package]]
 name = "gpui-pre-windows"
 version = "0.3.9"
-source = "git+https://github.com/amtoaer/zed?rev=a417dfbfbb89b5a90e69b22ee593456301c37fe9#a417dfbfbb89b5a90e69b22ee593456301c37fe9"
 dependencies = [
  "accesskit",
  "accesskit_windows",
@@ -3012,7 +3066,6 @@ dependencies = [
 [[package]]
 name = "gpui-pre-ztracing"
 version = "0.3.9"
-source = "git+https://github.com/amtoaer/zed?rev=a417dfbfbb89b5a90e69b22ee593456301c37fe9#a417dfbfbb89b5a90e69b22ee593456301c37fe9"
 dependencies = [
  "gpui-pre-ztracing-macro",
  "tracing",
@@ -3021,7 +3074,6 @@ dependencies = [
 [[package]]
 name = "gpui-pre-ztracing-macro"
 version = "0.3.9"
-source = "git+https://github.com/amtoaer/zed?rev=a417dfbfbb89b5a90e69b22ee593456301c37fe9#a417dfbfbb89b5a90e69b22ee593456301c37fe9"
 
 [[package]]
 name = "granit-parser"
@@ -4026,77 +4078,6 @@ dependencies = [
  "float_next_after",
  "lyon_path",
  "num-traits",
-]
-
-[[package]]
-name = "cadence"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "ashpd",
- "bytes",
- "directories",
- "futures-util",
- "gpui-base",
- "gpui-component",
- "gpui-pre",
- "gpui-pre-platform",
- "hashbrown 0.17.1",
- "image",
- "keyring",
- "ksni",
- "lru",
- "cadence-api",
- "cadence-decrypt",
- "mpris-server",
- "palette",
- "qrcode",
- "quick-xml",
- "reqwest",
- "resvg 0.46.0",
- "rodio",
- "rqrr",
- "rustls",
- "serde",
- "serde_json",
- "stream-download",
- "tokio",
- "tokio-util",
- "tray-icon",
- "wana_kana",
- "xxhash-rust",
- "zbus_systemd",
-]
-
-[[package]]
-name = "cadence-api"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "arc-swap",
- "async-tungstenite",
- "base64",
- "bytes",
- "flate2",
- "futures-util",
- "hex",
- "rand 0.10.2",
- "reqwest",
- "rumqttc",
- "rustls",
- "serde",
- "serde_json",
- "sha1",
- "thiserror 2.0.20",
- "tokio",
- "uuid",
-]
-
-[[package]]
-name = "cadence-decrypt"
-version = "0.1.0"
-dependencies = [
- "base64",
 ]
 
 [[package]]

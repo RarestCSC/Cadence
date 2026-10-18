@@ -1,4 +1,5 @@
 [workspace]
+exclude = ["vendor/gpui"]
 members = ["crates/cadence", "crates/cadence-api", "crates/cadence-decrypt"]
 default-members = ["crates/cadence"]
 resolver = "2"
@@ -76,27 +77,28 @@ wana_kana = { version = "5.0", default-features = false }
 xxhash-rust = { version = "0.8", features = ["xxh3"] }
 zbus_systemd = { version = "0.26100.0", default-features = false, features = ["login1", "zbus-async-tokio"] }
 
+# Vendored GPUI snapshot (see vendor/README.md).
 # Keep component and application GPUI types on the same patched snapshot.
 [patch.crates-io]
-gpui-pre-collections = { git = "https://github.com/amtoaer/zed", rev = "a417dfbfbb89b5a90e69b22ee593456301c37fe9" }
-gpui-pre = { git = "https://github.com/amtoaer/zed", rev = "a417dfbfbb89b5a90e69b22ee593456301c37fe9" }
-gpui-pre-apple = { git = "https://github.com/amtoaer/zed", rev = "a417dfbfbb89b5a90e69b22ee593456301c37fe9" }
-gpui-pre-linux = { git = "https://github.com/amtoaer/zed", rev = "a417dfbfbb89b5a90e69b22ee593456301c37fe9" }
-gpui-pre-macos = { git = "https://github.com/amtoaer/zed", rev = "a417dfbfbb89b5a90e69b22ee593456301c37fe9" }
-gpui-pre-macros = { git = "https://github.com/amtoaer/zed", rev = "a417dfbfbb89b5a90e69b22ee593456301c37fe9" }
-gpui-pre-platform = { git = "https://github.com/amtoaer/zed", rev = "a417dfbfbb89b5a90e69b22ee593456301c37fe9" }
-gpui-pre-shared-string = { git = "https://github.com/amtoaer/zed", rev = "a417dfbfbb89b5a90e69b22ee593456301c37fe9" }
-gpui-pre-util = { git = "https://github.com/amtoaer/zed", rev = "a417dfbfbb89b5a90e69b22ee593456301c37fe9" }
-gpui-pre-web = { git = "https://github.com/amtoaer/zed", rev = "a417dfbfbb89b5a90e69b22ee593456301c37fe9" }
-gpui-pre-wgpu = { git = "https://github.com/amtoaer/zed", rev = "a417dfbfbb89b5a90e69b22ee593456301c37fe9" }
-gpui-pre-windows = { git = "https://github.com/amtoaer/zed", rev = "a417dfbfbb89b5a90e69b22ee593456301c37fe9" }
-gpui-pre-http-client = { git = "https://github.com/amtoaer/zed", rev = "a417dfbfbb89b5a90e69b22ee593456301c37fe9" }
-gpui-pre-refineable = { git = "https://github.com/amtoaer/zed", rev = "a417dfbfbb89b5a90e69b22ee593456301c37fe9" }
-gpui-pre-derive-refineable = { git = "https://github.com/amtoaer/zed", rev = "a417dfbfbb89b5a90e69b22ee593456301c37fe9" }
-gpui-pre-scheduler = { git = "https://github.com/amtoaer/zed", rev = "a417dfbfbb89b5a90e69b22ee593456301c37fe9" }
-gpui-pre-sum-tree = { git = "https://github.com/amtoaer/zed", rev = "a417dfbfbb89b5a90e69b22ee593456301c37fe9" }
-gpui-pre-ztracing = { git = "https://github.com/amtoaer/zed", rev = "a417dfbfbb89b5a90e69b22ee593456301c37fe9" }
-gpui-pre-ztracing-macro = { git = "https://github.com/amtoaer/zed", rev = "a417dfbfbb89b5a90e69b22ee593456301c37fe9" }
+gpui-pre-collections = { path = "vendor/gpui/crates/collections" }
+gpui-pre = { path = "vendor/gpui/crates/gpui" }
+gpui-pre-apple = { path = "vendor/gpui/crates/gpui_apple" }
+gpui-pre-linux = { path = "vendor/gpui/crates/gpui_linux" }
+gpui-pre-macos = { path = "vendor/gpui/crates/gpui_macos" }
+gpui-pre-macros = { path = "vendor/gpui/crates/gpui_macros" }
+gpui-pre-platform = { path = "vendor/gpui/crates/gpui_platform" }
+gpui-pre-shared-string = { path = "vendor/gpui/crates/gpui_shared_string" }
+gpui-pre-util = { path = "vendor/gpui/crates/gpui_util" }
+gpui-pre-web = { path = "vendor/gpui/crates/gpui_web" }
+gpui-pre-wgpu = { path = "vendor/gpui/crates/gpui_wgpu" }
+gpui-pre-windows = { path = "vendor/gpui/crates/gpui_windows" }
+gpui-pre-http-client = { path = "vendor/gpui/crates/http_client" }
+gpui-pre-refineable = { path = "vendor/gpui/crates/refineable" }
+gpui-pre-derive-refineable = { path = "vendor/gpui/crates/refineable/derive_refineable" }
+gpui-pre-scheduler = { path = "vendor/gpui/crates/scheduler" }
+gpui-pre-sum-tree = { path = "vendor/gpui/crates/sum_tree" }
+gpui-pre-ztracing = { path = "vendor/gpui/crates/ztracing" }
+gpui-pre-ztracing-macro = { path = "vendor/gpui/crates/ztracing_macro" }
 
 [workspace.metadata.release]
 release = false

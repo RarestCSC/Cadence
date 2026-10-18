@@ -22,7 +22,7 @@
 
 ## 构建
 
-需要 Rust 1.98.1（由 `rust-toolchain.toml` 固定）以及 Linux 下的 GPUI 构建依赖：
+需要 Rust 1.98.1（由 `rust-toolchain.toml` 固定）以及 Linux 下的 GPUI 构建依赖。GPUI 源码已放在 `vendor/gpui`，构建时不需要再拉取 Zed 仓库。
 
 ```bash
 sudo apt install build-essential clang cmake libasound2-dev libfontconfig1-dev \
