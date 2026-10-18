@@ -17,7 +17,8 @@
 5. 支持歌词展示，内置 Ayu 亮色/暗色主题并可调整界面字体；
 6. 支持自定义毛玻璃背景图片，可调模糊半径与面板不透明度；
 7. 支持托盘，关闭窗口后仍在后台播放；
-8. 不依赖 WebView，运行流畅、占用较低。
+8. 记住上次窗口尺寸，启动时沿用；
+9. 不依赖 WebView，运行流畅、占用较低。
 
 界面截图待补充。
 
@@ -58,6 +59,14 @@ cargo test --locked -p cadence
 cargo test --locked -p cadence-api
 cargo clippy --locked -p cadence --all-targets
 ```
+
+打包 deb（使用系统自带的 `dpkg-deb`，不需要 nfpm）：
+
+```bash
+packaging/build-deb.sh 0.1.0 amd64 dist
+```
+
+`packaging/build-packages.sh` 仍保留 nfpm 的 deb/rpm/Arch 全量流程。
 
 ## 平台支持
 
