@@ -20,6 +20,22 @@
 
 界面截图待补充。
 
+## 项目结构
+
+| 路径 | 内容 |
+| --- | --- |
+| `crates/cadence` | 桌面应用：GPUI 界面、播放、缓存、托盘、MPRIS |
+| `crates/cadence-api` | QQ 音乐协议、登录和响应模型 |
+| `crates/cadence-decrypt` | QMC 音频解密 |
+| `vendor/gpui` | 带局部重绘和字体补丁的 GPUI 源码快照 |
+| `packaging` | Linux 打包脚本、desktop 文件和图标 |
+
+## 文档
+
+- [代码结构与维护约束](docs/architecture.md)
+- [GPUI 快照说明](vendor/README.md)
+- [第三方许可](THIRD_PARTY_NOTICES.md)
+
 ## 构建
 
 需要 Rust 1.98.1（由 `rust-toolchain.toml` 固定）以及 Linux 下的 GPUI 构建依赖。GPUI 源码已放在 `vendor/gpui`，构建时不需要再拉取 Zed 仓库。
@@ -43,7 +59,7 @@ cargo clippy --locked -p cadence --all-targets
 
 ## 平台支持
 
-当前只发布 Linux 构建。程序使用跨平台的语言和 UI 框架，Windows / macOS 可以自行编译，但 GPUI 在这两个平台上缺少 Damage Tracking，歌词页在高强度重绘时性能不如 Linux。
+当前只提供 Linux 构建。程序使用跨平台的语言和 UI 框架，Windows / macOS 可以自行编译，但 GPUI 在这两个平台上缺少 Damage Tracking，歌词页在高强度重绘时性能不如 Linux。
 
 ## 参考与致谢
 
@@ -57,6 +73,8 @@ cargo clippy --locked -p cadence --all-targets
 + [jixunmoe-go/qrc](https://github.com/jixunmoe-go/qrc)
 + [WXRIW/Lyricify-Lyrics-Helper](https://github.com/WXRIW/Lyricify-Lyrics-Helper)
 + [christosk92/WaveeMusic](https://github.com/christosk92/WaveeMusic)
++ [zed-industries/zed](https://github.com/zed-industries/zed)（GPUI 与 GPUI Component 的基础）
++ [longbridge/gpui-kit](https://github.com/longbridge/gpui-kit)（GPUI 组件库与快照导出脚本）
 + ...
 
 感谢他们的贡献。
@@ -65,4 +83,4 @@ cargo clippy --locked -p cadence --all-targets
 
 Cadence 是非官方客户端，与腾讯及 QQ 音乐无隶属或认可关系。请遵守当地法律、QQ 音乐服务条款及内容授权要求。
 
-Cadence 的原始代码来自 Lyrune。截至 2026-08-15，上游代码未声明开源许可，相关版权仍归其作者所有；第三方组件的许可信息见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。
+本项目是私人修改版本，不公开发布。原始代码来自 Lyrune；截至 2026-08-15，上游代码未声明开源许可，相关版权仍归其作者所有。GPUI 以 Apache-2.0 快照形式放在 `vendor/gpui`，第三方组件的完整许可信息见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。

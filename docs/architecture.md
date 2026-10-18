@@ -34,7 +34,7 @@
 
 ### GPUI 依赖
 
-`gpui-base` / `gpui-component` 固定为官方 0.7.3，底层使用 `gpui-pre 0.3.9`。相关 GPUI 源码以快照形式放在 [vendor/gpui](../vendor/gpui)，来自 `amtoaer/zed@a417dfb`；根 `Cargo.toml` 通过 `[patch.crates-io]` 指向本地路径，避免应用与组件使用不同来源的实体、窗口和绘制类型。
+`gpui-base` / `gpui-component` 固定为官方 0.7.3，底层使用 `gpui-pre 0.3.9`。相关 GPUI 源码以快照形式放在 [vendor/gpui](../vendor/gpui)，来自 `amtoaer/zed@a417dfbf`；根 `Cargo.toml` 通过 `[patch.crates-io]` 指向本地路径，避免应用与组件使用不同来源的实体、窗口和绘制类型。`vendor/gpui` 是独立 workspace，根工作区的 `exclude` 明确排除它，构建不再拉取 Zed 仓库。
 
 该快照从官方 `93d74566` 导出，包含 Cadence 需要的局部重绘、动态非活动帧率、字形变换和可变字体补丁；Wayland 帧循环补丁已被上游包含。补丁及生成方式见 [LYRUNE-GPUI.md](../vendor/gpui/LYRUNE-GPUI.md)。升级时按 [vendor/README.md](../vendor/README.md) 重新获取快照，并检查 `[patch.crates-io]` 的路径列表。
 
@@ -169,6 +169,7 @@ MPRIS 在音源加载期间沿用 `Playing` 状态；它与 `PlaybackState::is_a
 | 歌词收起时的首帧 | Linux release 隔离窗口中，稳定动画帧较轻，但每次从完整歌词页收起的首帧仍出现约 33～55ms 的 CPU 绘制耗时，主要在 prepaint。普通页面此时重新进入渲染树；还需调用栈采样确定具体成本，不能据此声称已消除所有卡顿。 |
 | `lyrics_loading::ensure_track_lyrics` 的异常收尾 | 磁盘旧内容已采用后，若后台任务异常结束而未发送 Network，收尾可能留下该歌曲的 loading 标记。该标记仅在内存中，重启后清除；需要受控异常复现，再决定恢复行为。 |
 | `AudioCache::prepare_for_seek` | 仅在测试中使用，覆盖跳转 Range 请求且不发送 HEAD 的路径；删除前需要替代这项覆盖，并重新判断 `validate_remote` 的用途。 |
+| `app::account::tests::test_qq_login_switching` | 全量测试中约 1/3 概率因 Cadence worker 线程唤醒 GPUI 测试调度器而失败；单独运行稳定通过，上游 1.7.0 也可复现。需要消除登录任务与测试调度器之间的跨线程唤醒竞态，不能简单忽略测试。 |
 
 ## 验证
 
@@ -181,6 +182,19 @@ cargo test --locked -p cadence-api
 cargo clippy --locked -p cadence --all-targets
 cargo fmt --all -- --check
 git diff --check
+```
+
+GPUI 已经 vendor，依赖缓存齐全时可用离线模式验证：
+
+```sh
+cargo check --offline --locked -p cadence --all-targets
+```
+
+图标和托盘图标的解析可单独检查：
+
+```sh
+cargo test --locked -p cadence cadence_logo_is_valid_svg
+cargo test --locked -p cadence generated_icon_has_expected_geometry
 ```
 
 应用回归测试在 [app/tests.rs](../crates/cadence/src/app/tests.rs)，显示边界测试与各视图同模块，纯解析测试在 `app/lyrics.rs`，协议测试与实现同模块。现有测试覆盖页面资源寿命、分页结果、历史滚动位置、队列去重、请求版本、歌词计时和缓存等关键约束。部分缓存测试启动本机 HTTP 服务，需要允许绑定回环端口；真实账号测试默认忽略，需要系统钥匙串中的凭据和 QQ 音乐网络访问。

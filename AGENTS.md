@@ -25,6 +25,13 @@
 - Use prefixes such as `feat/<topic>`, `fix/<topic>`, `refactor/<topic>`, or `chore/<topic>`.
 - Before pushing, verify that the current branch matches the work instead of using a generic feature branch.
 
+## Vendored GPUI
+
+- `vendor/gpui` is a generated snapshot of the patched GPUI crates used by `gpui-component`; do not edit it in place.
+- The root `Cargo.toml` `[patch.crates-io]` must point every `gpui-pre-*` package at the vendored paths; keep versions aligned with `gpui-component`.
+- Update the snapshot with the steps in `vendor/README.md`, then run `cargo check --locked -p cadence --all-targets` and the icon/tray tests.
+- Do not add the vendored workspace to the root workspace members; it is excluded on purpose.
+
 ## Proportional engineering
 
 - Make the smallest coherent change that fully solves the request.

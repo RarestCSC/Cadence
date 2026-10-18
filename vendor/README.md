@@ -14,7 +14,14 @@ every `gpui-pre-*` package to these local paths through `[patch.crates-io]`.
 A Cargo git dependency fetches the whole repository, and this snapshot lives in
 a Zed monorepo branch; that checkout is about 400 MB. The GPUI sources
 themselves are about 13 MB. Vendoring keeps builds offline and avoids carrying
-the editor's history.
+the editor's history. The root workspace excludes this directory and patches
+all `gpui-pre-*` packages to its crate paths.
+
+After a successful build, offline verification should work:
+
+```bash
+cargo check --offline --locked -p cadence --all-targets
+```
 
 ## License
 
