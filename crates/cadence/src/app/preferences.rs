@@ -49,6 +49,7 @@ impl Preferences {
             mode,
             matches!(self.settings.color_theme_mode, ColorThemeMode::Auto),
             self.settings.background_image.is_some(),
+            self.settings.background_opacity,
             &self.fonts,
             window,
             cx,

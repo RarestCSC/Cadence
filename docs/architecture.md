@@ -36,9 +36,15 @@
 
 `design.rs` 只保留 Ayu Light / Ayu Dark 两个内置主题；`color_theme_mode` 决定跟随系统还是固定亮暗。历史配置中的其他主题 ID 通过 serde alias 迁移到对应的 Ayu 主题，`AppSettings::normalized` 再统一校正亮色/暗色槽位。
 
-设置项 `background_image` 保存自定义背景路径。设置页通过 xdg-desktop-portal 文件选择器设置或清除该路径，`background.rs` 在后台线程读取图片、限制到 2560px 并高斯模糊后编码为 PNG；`CadenceView::reload_background_image` 用版本号丢弃过期结果，失败时提示并退回纯色背景。
+设置项 `background_image` 保存自定义背景路径，`background_blur`（0–64px）和 `background_opacity`（0–100%）控制模糊半径与玻璃面板不透明度。设置页通过 xdg-desktop-portal 文件选择器设置或清除该路径，`background.rs` 在后台线程读取图片、限制到 2560px 并按设置的高斯半径模糊后编码为 PNG；`CadenceView::reload_background_image` 用版本号丢弃过期结果，失败时提示并退回纯色背景。启动时 `main` 在创建窗口前同步解码首张背景并传入 `CadenceView::new`，避免先显示纯色主题再跳变到背景图。
 
-`CadenceView::render_background` 先绘制不透明主题底色，再按需叠加 `object_fit=Cover` 的背景图和一层明暗遮罩；`Preferences::apply_theme` 依据 `background_image.is_some()` 选择毛玻璃调色板，让主区域、侧栏、播放栏和卡片半透明，`window` 参数为 `Option<&mut Window>`，异步结果可以无窗口重建主题。
+`CadenceView::render_background` 先绘制不透明主题底色，再按需叠加 `object_fit=Cover` 的背景图和一层明暗遮罩；`Preferences::apply_theme` 依据 `background_image.is_some()` 选择毛玻璃 token，`design::apply` 的 `glass_opacity` 参数按设置给背景、面板、侧栏、弹窗和播放栏统一计算 alpha，不再维护独立的 `glass_palette`。`window` 参数为 `Option<&mut Window>`，异步结果可以无窗口重建主题。
+
+### 窗口装饰与窗口控件
+
+`WindowDecoration` 默认 CSD。CSD 下 `render_window_controls` 在左上角绘制三个 16px 自绘圆点（关闭/最小化/最大化），悬停时显示符号；控件使用 deferred 优先级 20，命中时阻止事件传到下方侧栏 logo 拖动区。侧栏 logo 使用 `candece-brand.svg` 并在 CSD 下右移为控件留出空间，拖动区仍覆盖整行，双击时切换最大化。
+
+主窗口内容四角使用 `WINDOW_CORNER_RADIUS=12`：背景层、主视图、侧栏左上和播放栏底部各自圆角，窗口背景保持透明，因此四角能看到桌面。GPUI 的 CSD 阴影仍按矩形绘制，X11 下阴影外缘会保留方角。导航栏头像左侧提供设置按钮，与账号菜单中的“设置”共用 `NavigationAction::Settings`。
 
 ### GPUI 依赖
 
@@ -102,9 +108,9 @@
 
 `Preferences` 持有唯一的 `SettingsWriter`，UI 将 `AppSettings` 快照发送到 FIFO 队列，不防抖或合并；文件更新会晚于 UI 提交请求。保存任务逐条等待 `spawn_blocking` 完成；`SettingsStore` 消费快照，规范化、序列化后写入同目录临时文件，再用 rename 原子替换正式文件。保存途中进程终止不会截断已提交的配置；残留临时文件不参与启动读取，下次保存时覆盖。磁盘回写交给操作系统，不使用 fsync，不承诺断电后的持久性。保存错误当前被忽略。
 
-`CadenceView::new` 创建领域状态、控件和订阅，随后 attach window、报告初始化错误、启动音频缓存/CDN 维护、恢复凭据、按设置安排更新检查。保留订阅句柄使回调持续有效；根视图、浏览视图和设置页在 `attach_window` 替换窗口绑定的订阅，歌词和进度视图递增窗口版本并恢复帧调度，旧回调不能接管新窗口。浏览补页及表格事件接收器通过 `cx.spawn` 跟随浏览实体；需要窗口的操作每次取最新句柄，窗口关闭时忽略残留 UI 事件，但不结束接收循环。
+`CadenceView::new` 创建领域状态、控件和订阅，随后 attach window、报告初始化错误、启动音频缓存/CDN 维护、恢复凭据。保留订阅句柄使回调持续有效；根视图、浏览视图和设置页在 `attach_window` 替换窗口绑定的订阅，歌词和进度视图递增窗口版本并恢复帧调度，旧回调不能接管新窗口。浏览补页及表格事件接收器通过 `cx.spawn` 跟随浏览实体；需要窗口的操作每次取最新句柄，窗口关闭时忽略残留 UI 事件，但不结束接收循环。
 
-CDN 维护和音频缓存维护由 `Playback` 保存 JoinHandle，重启维护或关闭应用时显式 abort。CDN 成功刷新后通过阻塞线程保存，刷新失败后等待 60 秒再进入下一轮。更新检查延时启动并重新读取开关/进行中状态；完成后按“手动/自动”区别通知。通知经当前记录的窗口句柄 defer，交给根视图持有的 `NotificationList`；窗口重开时创建新列表，旧窗口的通知不会转移过去。
+CDN 维护和音频缓存维护由 `Playback` 保存 JoinHandle，重启维护或关闭应用时显式 abort。CDN 成功刷新后通过阻塞线程保存，刷新失败后等待 60 秒再进入下一轮。通知经当前记录的窗口句柄 defer，交给根视图持有的 `NotificationList`；窗口重开时创建新列表，旧窗口的通知不会转移过去。
 
 退出回调调用 `shutdown`：先提交播放快照、停止音频，再提交其余偏好，关闭发送端并等待保存队列排空，最后 abort 两项维护。第一步可能因无账号/当前曲或快照没变化而不保存，所以不能删除第二次保存。等待放在退出回调返回之前：GPUI 对退出 future 的等待仅有 200ms，macOS 终止也不保证返回 main。工作线程不访问 GPUI，不依赖 UI 继续轮询。GPUI 的实体释放回调复用同一清理入口；已取走的写入者和设备不会再次保存或停止。关闭窗口留在托盘时不会结束写入者。
 
@@ -138,7 +144,7 @@ MPRIS 在音源加载期间沿用 `Playing` 状态；它与 `PlaybackState::is_a
 
 ### 窗口组合与刷新边界
 
-普通页面、歌词覆盖层、底部 112px 播放栏在窗口中分别组合。根视图只计算一条歌词展开进度，同时驱动覆盖层裁剪和 CSD 按钮颜色。只有已展开的区域遮挡鼠标；完全展开后不挂载普通页面，浏览实体、历史和进行中的请求仍然保留。播放栏的专辑/歌手导航先收起歌词，再调用浏览实体。
+普通页面、歌词覆盖层、底部 84px 播放栏在窗口中分别组合。根视图只计算一条歌词展开进度，同时驱动覆盖层裁剪。只有已展开的区域遮挡鼠标；完全展开后不挂载普通页面，浏览实体、历史和进行中的请求仍然保留。播放栏的专辑/歌手导航先收起歌词，再调用浏览实体。
 
 浏览实体拥有导航、侧栏及页面，但它们在渲染树中是兄弟：页体使用 GPUI `cached`，搜索输入和可调整面板位于该缓存外；导航、侧栏和设置页分别缓存。搜索输入变化使导航缓存失效，不重建页体。根视图的动画帧不会主动通知浏览实体。主题、页面资源、导航和尺寸等实际变化仍使相关视图失效。gpui-component 0.7.3 已修复输入框无变化时重复通知的问题；缓存回归测试也覆盖设置页滚动到输入区域的情况。
 
@@ -179,7 +185,9 @@ MPRIS 在音源加载期间沿用 `Playing` 状态；它与 `PlaybackState::is_a
 | `AudioCache::prepare_for_seek` | 仅在测试中使用，覆盖跳转 Range 请求且不发送 HEAD 的路径；删除前需要替代这项覆盖，并重新判断 `validate_remote` 的用途。 |
 | `app::account::tests::test_qq_login_switching` | 全量测试中约 1/3 概率因 Cadence worker 线程唤醒 GPUI 测试调度器而失败；单独运行稳定通过，上游 1.7.0 也可复现。需要消除登录任务与测试调度器之间的跨线程唤醒竞态，不能简单忽略测试。 |
 | 毛玻璃背景 | GNOME + X11 没有窗口后景模糊，毛玻璃由自绘模糊背景加半透明面板实现；`WindowBackgroundAppearance::Blurred` 目前只在 Wayland + KDE 分支生效，换到该组合前不要假设可用。 |
-| 背景图处理 | `background.rs` 的 `BLUR_SIGMA` 固定，图片每次启动或换图都会重新解码、缩放和模糊，没有落盘缓存；高分辨率图片首次加载会有一次可感知停顿，后续启动读系统页缓存。 |
+| 背景图处理 | 模糊半径由 `background_blur` 控制，但图片每次启动、换图或改模糊半径都会重新解码、缩放和模糊，没有落盘缓存；启动时同步加载首张背景会推迟窗口出现，高分辨率图片首次加载会有一次可感知停顿。 |
+| 窗口圆角 | 圆角由内容层各自绘制，GPUI 的 CSD 阴影仍是矩形，X11 下阴影外缘能看到方角；歌词页的全屏封面背景也未逐角裁切。 |
+| QQ 快捷登录 | `QqQuickLogin::discover` 探测本机 QQ 的 4301–4309 端口；当前 QQ 3.2.32 的 4301 可建立 TCP 连接但不完成 TLS 握手，检测失败会回退扫码并提示。需要 QQ 客户端协议变化的新证据后再改探测方式。 |
 
 ## 验证
 

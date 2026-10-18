@@ -1493,7 +1493,7 @@ impl LyricsView {
                         .into_any_element()
                 };
                 let collapse_top = if client_decorations { px(18.) } else { px(24.) };
-                let collapse_left = if client_decorations { px(16.) } else { px(24.) };
+                let collapse_margin = if client_decorations { px(16.) } else { px(24.) };
                 // 放大后裁掉至少一个源像素，避免线性采样混入纹理外的透明像素。
                 // 外扩会同时增大图片宽度，分母扣除两侧各一个源像素。
                 let backdrop_padding =
@@ -1605,6 +1605,8 @@ impl LyricsView {
                     .right_0()
                     .bottom_0()
                     .h(available_height)
+                    .rounded_tl(px(super::WINDOW_CORNER_RADIUS))
+                    .rounded_tr(px(super::WINDOW_CORNER_RADIUS))
                     .bg(theme.background)
                     .child(backdrop_images)
                     .child(content)
@@ -1612,7 +1614,8 @@ impl LyricsView {
                         div()
                             .absolute()
                             .top(collapse_top)
-                            .left(collapse_left)
+                            .when(client_decorations, |this| this.right(collapse_margin))
+                            .when(!client_decorations, |this| this.left(collapse_margin))
                             .child(collapse_button),
                     )
                     .when(client_decorations, |region| {

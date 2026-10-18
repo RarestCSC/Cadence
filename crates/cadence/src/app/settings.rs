@@ -5,7 +5,7 @@ use ashpd::desktop::file_chooser::{FileFilter, SelectedFiles};
 use cadence_api::Quality;
 use gpui::{prelude::*, *};
 use gpui_component::{
-    ActiveTheme as _, Disableable as _, Selectable as _, StyledExt as _,
+    ActiveTheme as _, Selectable as _, StyledExt as _,
     button::{Button, ButtonVariants as _},
     h_flex,
     input::{Input, InputEvent, InputState, MaskPattern, NumberInput, NumberInputEvent},
@@ -19,10 +19,10 @@ use crate::cache::audio_cache_limit_bytes;
 use crate::design;
 use crate::runtime::RUNTIME;
 use crate::settings::{
-    AppSettings, ColorThemeMode, FrameRate, MAX_IMAGE_CACHE_CAPACITY, MAX_LYRIC_SCALE_PERCENT,
-    MAX_NAVIGATION_HISTORY_LIMIT, MIN_SCALE_PERCENT, TrayIconStyle, WindowDecoration,
-    default_lyric_font_families, default_monospace_font_families, default_ui_font_families,
-    parse_font_families,
+    AppSettings, ColorThemeMode, FrameRate, MAX_BACKGROUND_BLUR, MAX_IMAGE_CACHE_CAPACITY,
+    MAX_LYRIC_SCALE_PERCENT, MAX_NAVIGATION_HISTORY_LIMIT, MIN_SCALE_PERCENT, TrayIconStyle,
+    WindowDecoration, default_lyric_font_families, default_monospace_font_families,
+    default_ui_font_families, parse_font_families,
 };
 
 struct SettingsInputs {
@@ -37,6 +37,8 @@ struct SettingsInputs {
     lyric_background_min_overlay: Entity<InputState>,
     lyric_background_chroma: Entity<InputState>,
     lyric_background_contrast: Entity<InputState>,
+    background_blur: Entity<InputState>,
+    background_opacity: Entity<InputState>,
 }
 
 impl SettingsInputs {
@@ -133,6 +135,28 @@ impl SettingsInputs {
                 .min(1.)
                 .max(21.)
         });
+        let background_blur_input = cx.new(|cx| {
+            InputState::new(window, cx)
+                .default_value(settings.background_blur.to_string())
+                .mask_pattern(MaskPattern::Number {
+                    separator: None,
+                    fraction: None,
+                })
+                .validate(|value, _| value.parse::<u32>().is_ok())
+                .min(0.)
+                .max(MAX_BACKGROUND_BLUR as f64)
+        });
+        let background_opacity_input = cx.new(|cx| {
+            InputState::new(window, cx)
+                .default_value(settings.background_opacity.to_string())
+                .mask_pattern(MaskPattern::Number {
+                    separator: None,
+                    fraction: None,
+                })
+                .validate(|value, _| value.parse::<u32>().is_ok())
+                .min(0.)
+                .max(100.)
+        });
         Self {
             ui_font: ui_font_input,
             monospace_font: monospace_font_input,
@@ -145,6 +169,8 @@ impl SettingsInputs {
             lyric_background_min_overlay: lyric_background_min_overlay_input,
             lyric_background_chroma: lyric_background_chroma_input,
             lyric_background_contrast: lyric_background_contrast_input,
+            background_blur: background_blur_input,
+            background_opacity: background_opacity_input,
         }
     }
 
@@ -173,7 +199,6 @@ pub(super) enum SettingsAction {
     PickBackground,
     ClearBackground,
     TrayIcon(TrayIconStyle),
-    CheckOnStartup(bool),
     WindowDecoration(WindowDecoration),
     Quality(Quality),
     ProgressRate(FrameRate),
@@ -191,19 +216,21 @@ pub(super) enum SettingsAction {
         chroma: f32,
         contrast: f32,
     },
+    Background {
+        blur: u32,
+        opacity: u32,
+    },
     Fonts {
         ui: Vec<String>,
         monospace: Vec<String>,
         lyrics: Vec<String>,
     },
-    CheckUpdates,
 }
 
 pub(super) struct SettingsPage {
     preferences: Entity<Preferences>,
     settings_inputs: SettingsInputs,
     settings_scroll_handle: ScrollHandle,
-    pub(super) update_check_in_progress: bool,
     _preferences_subscription: Subscription,
     _input_subscriptions: Vec<Subscription>,
     #[cfg(test)]
@@ -226,7 +253,6 @@ impl SettingsPage {
             preferences,
             settings_inputs,
             settings_scroll_handle: ScrollHandle::new(),
-            update_check_in_progress: false,
             _preferences_subscription: subscription,
             _input_subscriptions: Vec::new(),
             #[cfg(test)]
@@ -238,7 +264,7 @@ impl SettingsPage {
         // 窗口重开后替换窗口绑定；输入内容和滚动位置仍由同一个页面实体持有。
         self._input_subscriptions.clear();
         type ApplyNumberSetting = fn(&mut SettingsPage, &mut Window, &mut Context<SettingsPage>);
-        let numeric_inputs: [(_, _, _, ApplyNumberSetting); 8] = [
+        let numeric_inputs: [(_, _, _, ApplyNumberSetting); 10] = [
             (
                 &self.settings_inputs.audio_cache_limit,
                 1.,
@@ -286,6 +312,18 @@ impl SettingsPage {
                 0.1,
                 1.,
                 Self::apply_lyric_background_settings,
+            ),
+            (
+                &self.settings_inputs.background_blur,
+                1.,
+                0.,
+                Self::apply_background_settings,
+            ),
+            (
+                &self.settings_inputs.background_opacity,
+                5.,
+                0.,
+                Self::apply_background_settings,
             ),
         ];
         for (input, step, min, apply) in numeric_inputs {
@@ -463,6 +501,36 @@ impl SettingsPage {
         });
     }
 
+    fn apply_background_settings(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let settings = &self.preferences.read(cx).settings;
+        let blur = self
+            .settings_inputs
+            .background_blur
+            .read(cx)
+            .value()
+            .parse::<u32>()
+            .unwrap_or(settings.background_blur)
+            .min(MAX_BACKGROUND_BLUR);
+        let opacity = self
+            .settings_inputs
+            .background_opacity
+            .read(cx)
+            .value()
+            .parse::<u32>()
+            .unwrap_or(settings.background_opacity)
+            .min(100);
+        for (input, value) in [
+            (&self.settings_inputs.background_blur, blur.to_string()),
+            (
+                &self.settings_inputs.background_opacity,
+                opacity.to_string(),
+            ),
+        ] {
+            input.update(cx, |input, cx| input.set_value(value, window, cx));
+        }
+        cx.emit(SettingsAction::Background { blur, opacity });
+    }
+
     fn apply_font_settings(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         let ui = parse_font_families(self.settings_inputs.ui_font.read(cx).value().as_ref());
         let monospace = parse_font_families(
@@ -610,7 +678,6 @@ impl Render for SettingsPage {
                     )
             })
             .collect::<Vec<_>>();
-        let check_updates_on_startup = settings.check_updates_on_startup;
         let selected_window_decoration = settings.window_decoration;
         let window_decoration_buttons = WindowDecoration::ALL
             .into_iter()
@@ -786,7 +853,21 @@ impl Render for SettingsPage {
                                                     .text_color(theme.muted_foreground)
                                                     .child(name),
                                             )
-                                        }),
+                                        })
+                                        .child(number_setting(
+                                            "背景模糊",
+                                            "背景图片的高斯模糊半径，0 表示不模糊",
+                                            &self.settings_inputs.background_blur,
+                                            "px",
+                                            true,
+                                        ))
+                                        .child(number_setting(
+                                            "面板不透明度",
+                                            "玻璃面板的不透明度，越低背景越明显",
+                                            &self.settings_inputs.background_opacity,
+                                            "%",
+                                            true,
+                                        )),
                                 )
                                 .child(
                                     v_flex()
@@ -806,50 +887,6 @@ impl Render for SettingsPage {
                                                 .w_full()
                                                 .gap_1()
                                                 .children(tray_icon_buttons),
-                                        ),
-                                )
-                                .child(
-                                    v_flex()
-                                        .gap_2()
-                                        .pt_4()
-                                        .border_t_1()
-                                        .border_color(theme.border)
-                                        .child(div().font_medium().child("更新"))
-                                        .child(
-                                            div()
-                                                .text_xs()
-                                                .text_color(theme.muted_foreground)
-                                                .child("启动时在后台检查新版本，不会影响正常使用"),
-                                        )
-                                        .child(
-                                            Button::new("check-updates-on-startup")
-                                                .label(if check_updates_on_startup {
-                                                    "启动时检查更新：开启"
-                                                } else {
-                                                    "启动时检查更新：关闭"
-                                                })
-                                                .ghost()
-                                                .selected(check_updates_on_startup)
-                                                .w_full()
-                                                .h(px(38.))
-                                                .on_click(cx.listener(move |_, _, _, cx| {
-                                                    cx.emit(SettingsAction::CheckOnStartup(!check_updates_on_startup))
-                                                })),
-                                        )
-                                        .child(
-                                            Button::new("check-updates-now")
-                                            .label(if self.update_check_in_progress {
-                                                "正在检查更新…"
-                                            } else {
-                                                "立即检查更新"
-                                            })
-                                            .outline()
-                                            .w_full()
-                                            .h(px(38.))
-                                            .disabled(self.update_check_in_progress)
-                                            .on_click(cx.listener(|_, _, _, cx| {
-                                                cx.emit(SettingsAction::CheckUpdates)
-                                            })),
                                         ),
                                 )
                                 .child(
@@ -1086,9 +1123,6 @@ impl CadenceView {
             SettingsAction::PickBackground => self.pick_background(cx),
             SettingsAction::ClearBackground => self.set_background_image(None, cx),
             SettingsAction::TrayIcon(style) => self.set_tray_icon_style(*style, cx),
-            SettingsAction::CheckOnStartup(enabled) => {
-                self.set_check_updates_on_startup(*enabled, cx)
-            }
             SettingsAction::WindowDecoration(decoration) => {
                 self.set_window_decoration(*decoration, window, cx)
             }
@@ -1103,6 +1137,9 @@ impl CadenceView {
             SettingsAction::HistoryLimit(value) => self.set_navigation_history_limit(*value, cx),
             SettingsAction::Scale { lyric, spacing } => {
                 self.set_scale_settings(*lyric, *spacing, cx)
+            }
+            SettingsAction::Background { blur, opacity } => {
+                self.set_background_settings(*blur, *opacity, window, cx)
             }
             SettingsAction::LyricBackground {
                 min_overlay_percent,
@@ -1130,7 +1167,6 @@ impl CadenceView {
                 monospace,
                 lyrics,
             } => self.set_font_settings(ui.clone(), monospace.clone(), lyrics.clone(), window, cx),
-            SettingsAction::CheckUpdates => self.check_updates(true, cx),
         }
     }
 
@@ -1219,14 +1255,33 @@ impl CadenceView {
         cx.notify();
     }
 
-    fn set_check_updates_on_startup(&mut self, enabled: bool, cx: &mut Context<Self>) {
-        if self.preferences.read(cx).settings.check_updates_on_startup == enabled {
+    fn set_background_settings(
+        &mut self,
+        blur: u32,
+        opacity: u32,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        let (current_blur, current_opacity) = {
+            let settings = &self.preferences.read(cx).settings;
+            (settings.background_blur, settings.background_opacity)
+        };
+        if blur == current_blur && opacity == current_opacity {
             return;
         }
         self.preferences.update(cx, |preferences, cx| {
-            preferences.settings.check_updates_on_startup = enabled;
+            preferences.settings.background_blur = blur;
+            preferences.settings.background_opacity = opacity;
             cx.notify();
         });
+        if opacity != current_opacity {
+            self.preferences.update(cx, |preferences, cx| {
+                preferences.apply_theme(Some(window), cx)
+            });
+        }
+        if blur != current_blur {
+            self.reload_background_image(cx);
+        }
         self.preferences.read(cx).save();
         cx.notify();
     }

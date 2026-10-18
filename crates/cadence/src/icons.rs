@@ -3,17 +3,23 @@ use std::sync::{Arc, LazyLock, Mutex};
 use gpui::{AnyElement, Hsla, Image, ImageFormat, IntoElement as _, Pixels, Styled as _, img};
 use hashbrown::HashMap;
 
+#[cfg(test)]
 const CADENCE_SVG: &[u8] = include_bytes!("../assets/cadence.svg");
+const CADENCE_BRAND_SVG: &[u8] = include_bytes!("../assets/candece-brand.svg");
 
-static CADENCE_ICON: LazyLock<Arc<Image>> =
-    LazyLock::new(|| Arc::new(Image::from_bytes(ImageFormat::Svg, CADENCE_SVG.to_vec())));
+static CADENCE_BRAND: LazyLock<Arc<Image>> = LazyLock::new(|| {
+    Arc::new(Image::from_bytes(
+        ImageFormat::Svg,
+        CADENCE_BRAND_SVG.to_vec(),
+    ))
+});
 
 type MediaIconCache = Mutex<HashMap<(MediaIcon, u32), Arc<Image>>>;
 
 static MEDIA_ICONS: LazyLock<MediaIconCache> = LazyLock::new(|| Mutex::new(HashMap::new()));
 
-pub fn cadence_icon(size: Pixels) -> AnyElement {
-    img(CADENCE_ICON.clone()).size(size).into_any_element()
+pub fn cadence_brand() -> gpui::Img {
+    img(CADENCE_BRAND.clone())
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]

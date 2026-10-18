@@ -32,9 +32,7 @@ use cadence_api::ProtocolClient;
 use gpui::{prelude::*, *};
 use gpui_base::motion::{Transition, transition};
 use gpui_component::{
-    ActiveTheme as _, Theme,
-    button::{Button, ButtonCustomVariant, ButtonVariants as _},
-    h_flex,
+    ActiveTheme as _, Theme, h_flex,
     notification::{Notification, NotificationList},
     v_flex,
 };
@@ -59,17 +57,16 @@ use crate::http::CachedImageCache;
 use crate::icons::{MediaIcon, media_icon_hsla};
 use crate::lyrics_cache::LyricDiskCache;
 use crate::player::AudioPlayer;
-use crate::runtime::RUNTIME;
 use crate::settings::{AppSettings, CdnCacheStore, PersistedWindowSize, WindowDecoration};
 use crate::singleflight::SingleFlight;
-use crate::update::AvailableUpdate;
 
 const PAGE_SIZE: u64 = 100;
 const ARTIST_PAGE_SIZE: u64 = 5;
 const ARTIST_ALBUM_PAGE_SIZE: u64 = 10;
 const SEARCH_PAGE_SIZE: usize = 20;
 const LIBRARY_CACHE_TTL: Duration = Duration::from_secs(30 * 60);
-const PLAYER_BAR_HEIGHT: f32 = 112.;
+const PLAYER_BAR_HEIGHT: f32 = 84.;
+const WINDOW_CORNER_RADIUS: f32 = 12.;
 
 fn page_horizontal_padding(narrow: bool) -> Pixels {
     if narrow { px(20.) } else { px(24.) }
@@ -123,7 +120,6 @@ pub struct CadenceView {
     preferences: Entity<Preferences>,
     background_image: Option<Arc<Image>>,
     background_generation: u64,
-    update_check_in_progress: bool,
 
     window_handle: AnyWindowHandle,
     _subscriptions: Vec<Subscription>,
@@ -136,9 +132,14 @@ impl CadenceView {
         window: &mut Window,
         settings: AppSettings,
         fonts: AppFonts,
+        background_image: Option<Arc<Image>>,
+        background_error: Option<String>,
         cx: &mut Context<Self>,
     ) -> Self {
         let mut initial_errors = Vec::new();
+        if let Some(error) = background_error {
+            initial_errors.push(error);
+        }
         let audio = match AudioPlayer::new() {
             Ok(player) => {
                 player.set_volume(settings.volume);
@@ -264,15 +265,13 @@ impl CadenceView {
             lyrics,
             lyrics_view,
             preferences,
-            background_image: None,
+            background_image,
             background_generation: 0,
-            update_check_in_progress: false,
             window_handle: window.window_handle(),
             _subscriptions: subscriptions,
             _window_subscriptions: Vec::new(),
         };
         view.attach_window(window, cx);
-        view.reload_background_image(cx);
         if !initial_errors.is_empty() {
             view.notify_error(initial_errors.join("；"), cx);
         }
@@ -282,9 +281,6 @@ impl CadenceView {
         });
         view.account
             .update(cx, |account, cx| account.restore_credential(cx));
-        if view.preferences.read(cx).settings.check_updates_on_startup {
-            view.schedule_update_check(cx);
-        }
         // release 仍可读取账号实体；Rust Drop 阶段已没有 GPUI App 可供生成最后的快照。
         cx.on_release(|this, cx| this.shutdown(cx)).detach();
         cx.on_app_quit(|this, cx| {
@@ -389,84 +385,6 @@ impl CadenceView {
             Notification::error(message.into()),
             cx.theme().danger,
             cx.theme().danger_foreground,
-            cx,
-        );
-    }
-
-    fn schedule_update_check(&mut self, cx: &mut Context<Self>) {
-        cx.spawn(async move |this, cx| {
-            cx.background_executor().timer(Duration::from_secs(3)).await;
-            if this
-                .read_with(cx, |this, cx| {
-                    this.preferences.read(cx).settings.check_updates_on_startup
-                        && !this.update_check_in_progress
-                })
-                .unwrap_or(false)
-            {
-                this.update(cx, |this, cx| this.check_updates(false, cx))?;
-            }
-            anyhow::Ok(())
-        })
-        .detach();
-    }
-
-    fn check_updates(&mut self, manual: bool, cx: &mut Context<Self>) {
-        if self.update_check_in_progress {
-            return;
-        }
-        self.update_check_in_progress = true;
-        self.settings_page.update(cx, |page, cx| {
-            page.update_check_in_progress = true;
-            cx.notify();
-        });
-        let task = RUNTIME.spawn(crate::update::check());
-        cx.spawn(async move |this, cx| {
-            let result = task
-                .await
-                .map_err(anyhow::Error::from)
-                .and_then(|result| result);
-            this.update(cx, |this, cx| {
-                this.update_check_in_progress = false;
-                this.settings_page.update(cx, |page, cx| {
-                    page.update_check_in_progress = false;
-                    cx.notify();
-                });
-                match result {
-                    Ok(Some(update)) => this.notify_update(update, cx),
-                    Ok(None) if manual => this.notify_success("当前已是最新版本", cx),
-                    Err(error) => this.notify_error(format!("检查更新失败：{error:#}"), cx),
-                    _ => {}
-                }
-                cx.notify();
-            })
-        })
-        .detach();
-    }
-
-    fn notify_update(&self, update: AvailableUpdate, cx: &mut Context<Self>) {
-        self.notify_info(
-            format!(
-                "发现 Cadence {}，请前往 GitHub Release 页面更新",
-                update.version
-            ),
-            cx,
-        );
-    }
-
-    fn notify_info(&self, message: impl Into<String>, cx: &mut Context<Self>) {
-        self.notify_status(
-            Notification::info(message.into()),
-            cx.theme().info,
-            cx.theme().info_foreground,
-            cx,
-        );
-    }
-
-    fn notify_success(&self, message: impl Into<String>, cx: &mut Context<Self>) {
-        self.notify_status(
-            Notification::success(message.into()),
-            cx.theme().success,
-            cx.theme().success_foreground,
             cx,
         );
     }
@@ -691,7 +609,9 @@ impl CadenceView {
     }
 
     pub(super) fn reload_background_image(&mut self, cx: &mut Context<Self>) {
-        let path = self.preferences.read(cx).settings.background_image.clone();
+        let settings = &self.preferences.read(cx).settings;
+        let path = settings.background_image.clone();
+        let blur = settings.background_blur;
         self.background_generation = self.background_generation.wrapping_add(1);
         let generation = self.background_generation;
         let Some(path) = path else {
@@ -701,7 +621,7 @@ impl CadenceView {
         };
         let task = cx
             .background_executor()
-            .spawn(async move { crate::background::load(std::path::Path::new(&path)) });
+            .spawn(async move { crate::background::load(std::path::Path::new(&path), blur) });
         cx.spawn(async move |this, cx| {
             let result = task.await;
             let _ = this.update(cx, |this, cx| {
@@ -725,14 +645,18 @@ impl CadenceView {
         let theme = cx.theme();
         let mut base = theme.background;
         base.a = 1.;
-        let layer = div().absolute().inset_0().bg(base);
+        let layer = div()
+            .absolute()
+            .inset_0()
+            .rounded(px(WINDOW_CORNER_RADIUS))
+            .bg(base);
         let Some(image) = self.background_image.clone() else {
             return layer.into_any_element();
         };
         let tint = if matches!(theme.mode, gpui_component::ThemeMode::Dark) {
-            hsla(0., 0., 0., 0.22)
+            hsla(0., 0., 0., 0.24)
         } else {
-            hsla(0., 0., 1., 0.16)
+            hsla(0., 0., 1., 0.14)
         };
         layer
             .child(
@@ -740,75 +664,75 @@ impl CadenceView {
                     .absolute()
                     .inset_0()
                     .size_full()
+                    .rounded(px(WINDOW_CORNER_RADIUS))
                     .object_fit(ObjectFit::Cover),
             )
-            .child(div().absolute().inset_0().bg(tint))
+            .child(
+                div()
+                    .absolute()
+                    .inset_0()
+                    .rounded(px(WINDOW_CORNER_RADIUS))
+                    .bg(tint),
+            )
             .into_any_element()
     }
 
-    fn render_window_controls(&self, window: &mut Window, cx: &mut Context<Self>) -> AnyElement {
-        let theme = cx.theme().clone();
-        let lyrics_controls = self.cover_backdrop_expanded;
-        let control_hover_background = theme.background.opacity(0.58);
-        let control_variant = ButtonCustomVariant::new(cx)
-            .foreground(theme.foreground)
-            .hover(control_hover_background)
-            .active(control_hover_background);
+    fn render_window_controls(&self, window: &mut Window, _cx: &mut Context<Self>) -> AnyElement {
+        let glyph = hsla(0., 0., 0., 0.55);
+        let dot = |id: &'static str, color: Hsla, icon: MediaIcon, action: fn(&mut Window)| {
+            div()
+                .id(id)
+                .size(px(24.))
+                .flex()
+                .items_center()
+                .justify_center()
+                .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
+                .on_click(move |_, window, _| action(window))
+                .child(
+                    div()
+                        .size(px(16.))
+                        .rounded_full()
+                        .bg(color)
+                        .flex()
+                        .items_center()
+                        .justify_center()
+                        .child(
+                            div()
+                                .opacity(0.)
+                                .group_hover("window-controls", |style| style.opacity(1.))
+                                .child(media_icon_hsla(icon, glyph, px(10.))),
+                        ),
+                )
+        };
         h_flex()
+            .id("window-controls")
+            .group("window-controls")
             .absolute()
-            .top(px(18.))
-            .right(px(16.))
-            .children([
-                div()
-                    .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
-                    .child(
-                        Button::new("window-minimize")
-                            .when(lyrics_controls, |button| button.custom(control_variant))
-                            .when(!lyrics_controls, |button| button.ghost())
-                            .size(px(36.))
-                            .p_0()
-                            .child(media_icon_hsla(
-                                MediaIcon::WindowMinimize,
-                                theme.foreground,
-                                px(16.),
-                            ))
-                            .on_click(|_, window, _| window.minimize_window()),
-                    ),
-                div()
-                    .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
-                    .child(
-                        Button::new("window-maximize")
-                            .when(lyrics_controls, |button| button.custom(control_variant))
-                            .when(!lyrics_controls, |button| button.ghost())
-                            .size(px(36.))
-                            .p_0()
-                            .child(media_icon_hsla(
-                                if window.is_maximized() {
-                                    MediaIcon::WindowRestore
-                                } else {
-                                    MediaIcon::WindowMaximize
-                                },
-                                theme.foreground,
-                                px(16.),
-                            ))
-                            .on_click(|_, window, _| window.zoom_window()),
-                    ),
-                div()
-                    .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
-                    .child(
-                        Button::new("window-close")
-                            .when(lyrics_controls, |button| button.custom(control_variant))
-                            .when(!lyrics_controls, |button| button.ghost())
-                            .size(px(36.))
-                            .p_0()
-                            .child(media_icon_hsla(
-                                MediaIcon::WindowClose,
-                                theme.foreground,
-                                px(16.),
-                            ))
-                            .on_click(|_, window, _| window.remove_window()),
-                    ),
-            ])
+            .top(px(20.))
+            .left(px(8.))
+            .gap(px(2.))
+            .child(dot(
+                "window-close",
+                rgb(0xff5f57).into(),
+                MediaIcon::WindowClose,
+                |window| window.remove_window(),
+            ))
+            .child(dot(
+                "window-minimize",
+                rgb(0xfebc2e).into(),
+                MediaIcon::WindowMinimize,
+                |window| window.minimize_window(),
+            ))
+            .child(dot(
+                "window-maximize",
+                rgb(0x28c840).into(),
+                if window.is_maximized() {
+                    MediaIcon::WindowRestore
+                } else {
+                    MediaIcon::WindowMaximize
+                },
+                |window| window.zoom_window(),
+            ))
             .into_any_element()
     }
 
@@ -830,6 +754,7 @@ impl CadenceView {
         v_flex()
             .relative()
             .size_full()
+            .rounded(px(WINDOW_CORNER_RADIUS))
             .image_cache(self.image_cache.clone())
             .font(self.preferences.read(cx).fonts.ui.clone())
             .bg(theme.background)

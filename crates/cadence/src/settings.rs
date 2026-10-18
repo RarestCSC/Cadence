@@ -28,6 +28,9 @@ pub const MAX_LYRIC_SCALE_PERCENT: u32 = 300;
 pub const DEFAULT_LYRIC_BACKGROUND_CHROMA: f32 = 0.12;
 pub const DEFAULT_LYRIC_BACKGROUND_MIN_OVERLAY_PERCENT: u32 = 40;
 pub const DEFAULT_LYRIC_BACKGROUND_CONTRAST: f32 = 4.;
+pub const DEFAULT_BACKGROUND_BLUR: u32 = 28;
+pub const MAX_BACKGROUND_BLUR: u32 = 64;
+pub const DEFAULT_BACKGROUND_OPACITY: u32 = 40;
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct PersistedPlayback {
@@ -84,8 +87,8 @@ pub enum TrayIconStyle {
 #[derive(Clone, Copy, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum WindowDecoration {
-    #[default]
     Ssd,
+    #[default]
     Csd,
 }
 
@@ -245,6 +248,8 @@ pub struct AppSettings {
     pub light_color_theme: ColorTheme,
     pub dark_color_theme: ColorTheme,
     pub background_image: Option<String>,
+    pub background_blur: u32,
+    pub background_opacity: u32,
     #[serde(default, rename = "color_theme", skip_serializing)]
     legacy_color_theme: Option<ColorTheme>,
     pub tray_icon_style: TrayIconStyle,
@@ -269,7 +274,6 @@ pub struct AppSettings {
     pub current_playback: Option<PersistedPlayback>,
     pub window_size: Option<PersistedWindowSize>,
     pub sidebar_width: Option<u32>,
-    pub check_updates_on_startup: bool,
 }
 
 impl Default for AppSettings {
@@ -282,6 +286,8 @@ impl Default for AppSettings {
             light_color_theme: ColorTheme::AyuLight,
             dark_color_theme: ColorTheme::AyuDark,
             background_image: None,
+            background_blur: DEFAULT_BACKGROUND_BLUR,
+            background_opacity: DEFAULT_BACKGROUND_OPACITY,
             legacy_color_theme: None,
             tray_icon_style: TrayIconStyle::default(),
             window_decoration: WindowDecoration::default(),
@@ -304,7 +310,6 @@ impl Default for AppSettings {
             current_playback: None,
             window_size: None,
             sidebar_width: None,
-            check_updates_on_startup: true,
         }
     }
 }
@@ -321,6 +326,8 @@ impl AppSettings {
             let path = path.trim();
             (!path.is_empty()).then(|| path.to_owned())
         });
+        self.background_blur = self.background_blur.min(MAX_BACKGROUND_BLUR);
+        self.background_opacity = self.background_opacity.min(100);
         self.volume = normalized_volume(self.volume, 1.);
         self.last_nonzero_volume = normalized_volume(self.last_nonzero_volume, 1.).max(0.01);
         self.ui_font_families =
@@ -664,8 +671,10 @@ mod tests {
         assert_eq!(settings.light_color_theme, ColorTheme::AyuLight);
         assert_eq!(settings.dark_color_theme, ColorTheme::AyuDark);
         assert_eq!(settings.background_image, None);
+        assert_eq!(settings.background_blur, DEFAULT_BACKGROUND_BLUR);
+        assert_eq!(settings.background_opacity, DEFAULT_BACKGROUND_OPACITY);
         assert_eq!(settings.tray_icon_style, TrayIconStyle::Auto);
-        assert_eq!(settings.window_decoration, WindowDecoration::Ssd);
+        assert_eq!(settings.window_decoration, WindowDecoration::Csd);
         assert_eq!(settings.ui_font_families, [".SystemUIFont"]);
         assert_eq!(
             settings.monospace_font_families,
@@ -780,6 +789,8 @@ mod tests {
             light_color_theme: ColorTheme::AyuLight,
             dark_color_theme: ColorTheme::AyuDark,
             background_image: None,
+            background_blur: 100,
+            background_opacity: 120,
             legacy_color_theme: None,
             tray_icon_style: TrayIconStyle::Light,
             window_decoration: WindowDecoration::Csd,
@@ -802,7 +813,6 @@ mod tests {
             current_playback: None,
             window_size: None,
             sidebar_width: None,
-            check_updates_on_startup: true,
         }
         .normalized();
         assert_eq!(settings.volume, 1.);
@@ -812,6 +822,8 @@ mod tests {
         assert_eq!(settings.lyric_background_chroma, 0.4);
         assert_eq!(settings.lyric_background_min_overlay_percent, 100);
         assert_eq!(settings.lyric_background_contrast, 21.);
+        assert_eq!(settings.background_blur, MAX_BACKGROUND_BLUR);
+        assert_eq!(settings.background_opacity, 100);
         assert_eq!(settings.audio_cache_limit_gb, 1);
         assert_eq!(settings.image_cache_capacity, 1);
         assert_eq!(
@@ -851,6 +863,8 @@ mod tests {
             light_color_theme: ColorTheme::AyuLight,
             dark_color_theme: ColorTheme::AyuDark,
             background_image: None,
+            background_blur: 12,
+            background_opacity: 75,
             legacy_color_theme: None,
             tray_icon_style: TrayIconStyle::Dark,
             window_decoration: WindowDecoration::Csd,
@@ -892,7 +906,6 @@ mod tests {
                 height: 900,
             }),
             sidebar_width: Some(296),
-            check_updates_on_startup: true,
         };
 
         SettingsStore::save_to(&path, expected.clone()).expect("save settings");
@@ -904,10 +917,8 @@ mod tests {
         assert_eq!(restored.color_theme_mode, expected.color_theme_mode);
         assert_eq!(restored.light_color_theme, expected.light_color_theme);
         assert_eq!(restored.dark_color_theme, expected.dark_color_theme);
-        assert_eq!(
-            restored.check_updates_on_startup,
-            expected.check_updates_on_startup
-        );
+        assert_eq!(restored.background_blur, expected.background_blur);
+        assert_eq!(restored.background_opacity, expected.background_opacity);
         assert_eq!(restored.tray_icon_style, expected.tray_icon_style);
         assert_eq!(restored.window_decoration, expected.window_decoration);
         assert_eq!(restored.ui_font_families, expected.ui_font_families);

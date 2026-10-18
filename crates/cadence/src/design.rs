@@ -1,6 +1,6 @@
 use std::rc::Rc;
 
-use gpui::{Anchor, App, Font, FontFallbacks, Window, WindowAppearance, font};
+use gpui::{Anchor, App, Font, FontFallbacks, SharedString, Window, WindowAppearance, font};
 use gpui_component::{Theme, ThemeConfig, ThemeConfigColors, ThemeMode};
 use serde::{Deserialize, Serialize};
 
@@ -101,17 +101,17 @@ impl ColorTheme {
                 surface: "#f8f9fa",
                 sidebar: "#f8f9fa",
                 outer: "#ebeef0",
-                foreground: "#5c6166",
-                subtext_foreground: "#828e9f",
+                foreground: "#30363d",
+                subtext_foreground: "#4a535c",
                 muted: "#ebeef0",
-                muted_foreground: "#939498",
+                muted_foreground: "#4f555c",
                 border: "#6b7d8f1f",
                 primary: "#22a4e6",
                 primary_foreground: "#ffffff",
                 primary_hover: "#1a91cd",
                 primary_active: "#1a91cd",
                 accent: "#f3f4f5",
-                accent_foreground: "#5c6166",
+                accent_foreground: "#30363d",
                 active: "#035bd626",
                 hover: "#6b7d8f1f",
                 ring: "#f29718",
@@ -156,30 +156,6 @@ impl ColorTheme {
             },
         }
     }
-
-    pub(crate) const fn glass_palette(self) -> Palette {
-        let base = self.palette();
-        match self {
-            Self::AyuLight => Palette {
-                background: "#fcfcfc7a",
-                surface: "#f8f9fab3",
-                sidebar: "#f8f9fab8",
-                outer: "#ebeef0d9",
-                muted: "#ebeef099",
-                accent: "#f3f4f599",
-                ..base
-            },
-            Self::AyuDark => Palette {
-                background: "#0d101673",
-                surface: "#16191fb3",
-                sidebar: "#16191fb8",
-                outer: "#090b10d9",
-                muted: "#1f212799",
-                accent: "#20242b99",
-                ..base
-            },
-        }
-    }
 }
 
 #[derive(Clone, Copy)]
@@ -219,31 +195,25 @@ pub(crate) fn apply(
     mode: ThemeMode,
     follow_system: bool,
     glass: bool,
+    glass_opacity: u32,
     fonts: &AppFonts,
     window: Option<&mut Window>,
     cx: &mut App,
 ) {
-    let light_palette = if glass {
-        light_theme.glass_palette()
-    } else {
-        light_theme.palette()
-    };
-    let dark_palette = if glass {
-        dark_theme.glass_palette()
-    } else {
-        dark_theme.palette()
-    };
+    let glass_alpha = glass.then_some(glass_opacity.min(100) as f32 / 100.);
     let light_config = Rc::new(theme_config(
         light_theme.label(),
-        light_palette,
+        light_theme.palette(),
         ThemeMode::Light,
         fonts,
+        glass_alpha,
     ));
     let dark_config = Rc::new(theme_config(
         dark_theme.label(),
-        dark_palette,
+        dark_theme.palette(),
         ThemeMode::Dark,
         fonts,
+        glass_alpha,
     ));
     let theme = Theme::global_mut(cx);
     theme.light_theme = light_config;
@@ -267,9 +237,16 @@ fn theme_config(
     palette: Palette,
     mode: ThemeMode,
     fonts: &AppFonts,
+    glass_alpha: Option<f32>,
 ) -> ThemeConfig {
+    let panel = |color: &'static str, extra: f32| -> SharedString {
+        match glass_alpha {
+            Some(alpha) => with_alpha(color, alpha + extra),
+            None => color.into(),
+        }
+    };
     let mut colors = ThemeConfigColors::default();
-    colors.background = Some(palette.background.into());
+    colors.background = Some(panel(palette.background, 0.));
     colors.foreground = Some(palette.foreground.into());
     colors.border = Some(palette.border.into());
     colors.input = Some(palette.border.into());
@@ -279,18 +256,18 @@ fn theme_config(
     colors.link = Some(palette.primary.into());
     colors.link_hover = Some(palette.primary_hover.into());
     colors.link_active = Some(palette.primary_active.into());
-    colors.muted = Some(palette.muted.into());
+    colors.muted = Some(panel(palette.muted, 0.04));
     colors.muted_foreground = Some(palette.muted_foreground.into());
-    colors.accent = Some(palette.accent.into());
+    colors.accent = Some(panel(palette.accent, 0.04));
     colors.accent_foreground = Some(palette.accent_foreground.into());
     colors.primary = Some(palette.primary.into());
     colors.primary_foreground = Some(palette.primary_foreground.into());
     colors.primary_hover = Some(palette.primary_hover.into());
     colors.primary_active = Some(palette.primary_active.into());
-    colors.secondary = Some(palette.muted.into());
+    colors.secondary = Some(panel(palette.muted, 0.04));
     colors.secondary_foreground = Some(palette.subtext_foreground.into());
     colors.secondary_hover = Some(palette.hover.into());
-    colors.secondary_active = Some(palette.accent.into());
+    colors.secondary_active = Some(panel(palette.accent, 0.04));
     colors.danger = Some(palette.emotion.into());
     colors.danger_foreground = Some(palette.emotion_foreground.into());
     colors.danger_hover = Some(palette.emotion.into());
@@ -307,40 +284,40 @@ fn theme_config(
     colors.warning_foreground = Some(palette.warning_foreground.into());
     colors.warning_hover = Some(palette.warning.into());
     colors.warning_active = Some(palette.warning.into());
-    colors.button = Some(palette.surface.into());
+    colors.button = Some(panel(palette.surface, 0.06));
     colors.button_foreground = Some(palette.foreground.into());
     colors.button_hover = Some(palette.hover.into());
-    colors.button_active = Some(palette.accent.into());
+    colors.button_active = Some(panel(palette.accent, 0.04));
     colors.button_primary = Some(palette.primary.into());
     colors.button_primary_foreground = Some(palette.primary_foreground.into());
     colors.button_primary_hover = Some(palette.primary_hover.into());
     colors.button_primary_active = Some(palette.primary_active.into());
-    colors.button_secondary = Some(palette.muted.into());
+    colors.button_secondary = Some(panel(palette.muted, 0.04));
     colors.button_secondary_foreground = Some(palette.foreground.into());
     colors.button_secondary_hover = Some(palette.hover.into());
-    colors.button_secondary_active = Some(palette.accent.into());
-    colors.group_box = Some(palette.surface.into());
+    colors.button_secondary_active = Some(panel(palette.accent, 0.04));
+    colors.group_box = Some(panel(palette.surface, 0.06));
     colors.group_box_foreground = Some(palette.foreground.into());
-    colors.popover = Some(palette.surface.into());
+    colors.popover = Some(panel(palette.surface, 0.06));
     colors.popover_foreground = Some(palette.foreground.into());
-    colors.sidebar = Some(palette.sidebar.into());
+    colors.sidebar = Some(panel(palette.sidebar, 0.06));
     colors.sidebar_foreground = Some(palette.foreground.into());
     colors.sidebar_border = Some(palette.border.into());
     colors.sidebar_primary = Some(palette.primary.into());
     colors.sidebar_primary_foreground = Some(palette.primary_foreground.into());
-    colors.list = Some(palette.sidebar.into());
+    colors.list = Some(panel(palette.sidebar, 0.06));
     colors.list_active = Some(palette.active.into());
     colors.list_active_border = Some("#00000000".into());
     colors.list_hover = Some(palette.hover.into());
-    colors.list_even = Some(palette.sidebar.into());
-    colors.list_head = Some(palette.sidebar.into());
-    colors.table = Some(palette.background.into());
-    colors.table_head = Some(palette.background.into());
+    colors.list_even = Some(panel(palette.sidebar, 0.06));
+    colors.list_head = Some(panel(palette.sidebar, 0.06));
+    colors.table = Some(panel(palette.background, 0.));
+    colors.table_head = Some(panel(palette.background, 0.));
     colors.table_head_foreground = Some(palette.muted_foreground.into());
     colors.table_hover = Some(palette.hover.into());
     colors.table_active = Some(palette.active.into());
     colors.table_active_border = Some("#00000000".into());
-    colors.table_even = Some(palette.background.into());
+    colors.table_even = Some(panel(palette.background, 0.));
     colors.table_row_border = Some("#00000000".into());
     colors.slider_bar = Some(palette.primary.into());
     colors.slider_thumb = Some(palette.primary.into());
@@ -348,9 +325,9 @@ fn theme_config(
     colors.scrollbar = Some("#00000000".into());
     colors.scrollbar_thumb = Some(palette.scrollbar_thumb.into());
     colors.scrollbar_thumb_hover = Some(palette.muted_foreground.into());
-    colors.title_bar = Some(palette.outer.into());
+    colors.title_bar = Some(panel(palette.outer, 0.12));
     colors.title_bar_border = Some(palette.border.into());
-    colors.status_bar = Some(palette.outer.into());
+    colors.status_bar = Some(panel(palette.outer, 0.12));
     colors.status_bar_border = Some(palette.border.into());
     colors.window_border = Some(palette.border.into());
 
@@ -367,6 +344,13 @@ fn theme_config(
         colors,
         ..Default::default()
     }
+}
+
+fn with_alpha(color: &'static str, alpha: f32) -> SharedString {
+    let rgb =
+        u32::from(gpui::Rgba::try_from(color).expect("palette colors are valid hex")) & 0xffffff00;
+    let alpha = (alpha.clamp(0., 1.) * 255.).round() as u32;
+    format!("#{:08x}", rgb | alpha).into()
 }
 
 #[cfg(test)]
@@ -388,21 +372,27 @@ mod tests {
     }
 
     #[test]
-    fn ayu_palettes_and_glass_variants_use_valid_colors() {
+    fn ayu_palettes_use_valid_colors() {
         for theme in [ColorTheme::AyuLight, ColorTheme::AyuDark] {
-            for palette in [theme.palette(), theme.glass_palette()] {
-                for color in [
-                    palette.background,
-                    palette.surface,
-                    palette.sidebar,
-                    palette.outer,
-                    palette.muted,
-                    palette.accent,
-                ] {
-                    assert!(gpui::Rgba::try_from(color).is_ok(), "invalid color {color}");
-                }
+            let palette = theme.palette();
+            for color in [
+                palette.background,
+                palette.surface,
+                palette.sidebar,
+                palette.outer,
+                palette.muted,
+                palette.accent,
+            ] {
+                assert!(gpui::Rgba::try_from(color).is_ok(), "invalid color {color}");
             }
         }
+    }
+
+    #[test]
+    fn glass_colors_clamp_alpha() {
+        assert_eq!(with_alpha("#112233", 0.5).as_ref(), "#11223380");
+        assert_eq!(with_alpha("#112233", 2.).as_ref(), "#112233ff");
+        assert_eq!(with_alpha("#112233", -1.).as_ref(), "#11223300");
     }
 
     #[test]

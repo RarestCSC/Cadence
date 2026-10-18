@@ -17,7 +17,6 @@ mod settings;
 mod single_instance;
 mod singleflight;
 mod tray;
-mod update;
 
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -30,7 +29,7 @@ use settings::{PersistedWindowSize, SettingsStore, TrayIconStyle, WindowDecorati
 use tray::TrayCommand;
 
 const DEFAULT_WINDOW_WIDTH: f32 = 1080.;
-const DEFAULT_WINDOW_HEIGHT: f32 = 760.;
+const DEFAULT_WINDOW_HEIGHT: f32 = 680.;
 const MIN_WINDOW_WIDTH: f32 = 800.;
 const MIN_WINDOW_HEIGHT: f32 = 600.;
 const INACTIVE_WINDOW_FRAME_INTERVAL: Duration = Duration::from_millis(40);
@@ -153,12 +152,21 @@ fn main() {
     };
     let _ = rustls::crypto::ring::default_provider().install_default();
     let http_client = http::client().expect("create image HTTP client");
+    let settings = SettingsStore::load().unwrap_or_default();
+    let (initial_background, background_error) = match settings.background_image.as_deref() {
+        Some(path) => {
+            match crate::background::load(std::path::Path::new(path), settings.background_blur) {
+                Ok(image) => (Some(image), None),
+                Err(error) => (None, Some(format!("背景图片加载失败：{error:#}"))),
+            }
+        }
+        None => (None, None),
+    };
     gpui_platform::application()
         .with_http_client(http_client)
         .with_quit_mode(QuitMode::Explicit)
         .run(|cx: &mut App| {
             gpui_component::init(cx);
-            let settings = SettingsStore::load().unwrap_or_default();
             let fonts = design::resolve_fonts(
                 &settings.ui_font_families,
                 &settings.monospace_font_families,
@@ -172,6 +180,7 @@ fn main() {
                 initial_mode,
                 matches!(settings.color_theme_mode, settings::ColorThemeMode::Auto),
                 settings.background_image.is_some(),
+                settings.background_opacity,
                 &fonts,
                 None,
                 cx,
@@ -197,7 +206,16 @@ fn main() {
                 .open_window(
                     main_window_options(settings.window_size, settings.window_decoration, cx),
                     move |window, cx| {
-                        let view = cx.new(|cx| CadenceView::new(window, settings, fonts, cx));
+                        let view = cx.new(|cx| {
+                            CadenceView::new(
+                                window,
+                                settings,
+                                fonts,
+                                initial_background,
+                                background_error,
+                                cx,
+                            )
+                        });
                         *view_slot_for_window.borrow_mut() = Some(view.clone());
                         cx.new(|cx| Root::new(view, window, cx))
                     },

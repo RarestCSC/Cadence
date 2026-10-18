@@ -14,7 +14,7 @@ use gpui_component::{
 use super::{account::Account, preferences::Preferences};
 use crate::{
     http::cached_image_source,
-    icons::{MediaIcon, cadence_icon, media_icon_hsla},
+    icons::{MediaIcon, cadence_brand, media_icon_hsla},
     library::PlaylistListDelegate,
 };
 
@@ -295,8 +295,23 @@ impl Render for NavigationView {
                             .gap_2()
                             .child(history_navigation.flex_shrink_0())
                             .child(navigation)
-                            .child(div().size(px(44.)).flex_shrink_0().child(account))
-                            .child(div().w(px(108.)).flex_shrink_0()),
+                            .child(
+                                Button::new("open-settings")
+                                    .ghost()
+                                    .rounded(px(999.))
+                                    .size(px(44.))
+                                    .p_0()
+                                    .tooltip("设置")
+                                    .child(media_icon_hsla(
+                                        MediaIcon::Settings,
+                                        theme.secondary_foreground,
+                                        px(22.),
+                                    ))
+                                    .on_click(cx.listener(|_, _, _, cx| {
+                                        cx.emit(NavigationAction::Settings)
+                                    })),
+                            )
+                            .child(div().size(px(44.)).flex_shrink_0().child(account)),
                     )
                 } else {
                     header
@@ -315,12 +330,28 @@ impl Render for NavigationView {
                                 .child(history_navigation),
                         )
                         .child(
-                            div()
+                            h_flex()
                                 .absolute()
                                 .top(px(17.))
                                 .right(px(24.))
-                                .size(px(44.))
-                                .child(account),
+                                .gap_1()
+                                .child(
+                                    Button::new("open-settings")
+                                        .ghost()
+                                        .rounded(px(999.))
+                                        .size(px(44.))
+                                        .p_0()
+                                        .tooltip("设置")
+                                        .child(media_icon_hsla(
+                                            MediaIcon::Settings,
+                                            theme.secondary_foreground,
+                                            px(22.),
+                                        ))
+                                        .on_click(cx.listener(|_, _, _, cx| {
+                                            cx.emit(NavigationAction::Settings)
+                                        })),
+                                )
+                                .child(div().size(px(44.)).child(account)),
                         )
                 }
             })
@@ -371,6 +402,11 @@ impl SidebarView {
                     window.start_window_move();
                 }
             }))
+            .on_click(cx.listener(|_, event: &ClickEvent, window, _| {
+                if event.click_count() == 2 {
+                    window.zoom_window();
+                }
+            }))
     }
 }
 impl Render for SidebarView {
@@ -381,25 +417,22 @@ impl Render for SidebarView {
             .id("window-drag-logo")
             .h(px(64.))
             .mb_2()
-            .px_5()
+            .pl(if client_decorations { px(92.) } else { px(20.) })
+            .pr_5()
             .gap_3()
-            .child(cadence_icon(px(42.)))
             .child(
-                v_flex()
-                    .gap_0p5()
-                    .child(div().font_semibold().child("Cadence"))
-                    .child(
-                        div()
-                            .text_xs()
-                            .text_color(theme.muted_foreground)
-                            .child("QQ Music Player"),
-                    ),
+                div()
+                    .flex_1()
+                    .min_w_0()
+                    .h(px(34.))
+                    .child(cadence_brand().size_full().object_fit(ObjectFit::Contain)),
             )
             .when(client_decorations, |logo| self.window_drag_region(logo, cx));
         v_flex()
             .w_full()
             .h_full()
             .flex_shrink_0()
+            .rounded_tl(px(super::WINDOW_CORNER_RADIUS))
             .bg(theme.sidebar)
             .child(logo)
             .child(

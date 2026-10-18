@@ -19,7 +19,7 @@ use tokio::sync::mpsc;
 
 use crate::credentials::CredentialStore;
 use crate::http::cached_image_source;
-use crate::icons::{MediaIcon, cadence_icon, media_icon_hsla};
+use crate::icons::{MediaIcon, cadence_brand, media_icon_hsla};
 use crate::runtime::RUNTIME;
 
 use super::CadenceView;
@@ -279,6 +279,13 @@ impl Account {
                 }
                 self.message.clear();
                 self.qq_login = Some(Arc::new(login));
+            }
+            Err(error) => {
+                cx.emit(AccountEvent::Error(format!(
+                    "未检测到本机 QQ 登录：{error:#}；已切换到扫码登录"
+                )));
+                self.qq_mode = QqLoginMode::Qr;
+                self.start_login(cx);
             }
             _ => {
                 self.qq_mode = QqLoginMode::Qr;
@@ -884,6 +891,7 @@ impl CadenceView {
         .filter(|(_, _, method)| *method != account.login_method);
         v_flex()
             .size_full()
+            .rounded(px(super::WINDOW_CORNER_RADIUS))
             .image_cache(self.image_cache.clone())
             .font(self.preferences.read(cx).fonts.ui.clone())
             .items_center()
@@ -905,7 +913,7 @@ impl CadenceView {
                         v_flex()
                             .items_center()
                             .gap_2()
-                            .child(cadence_icon(px(44.)))
+                            .child(cadence_brand().h(px(40.)))
                             .child(div().mt_2().text_2xl().font_bold().child("登录 Cadence"))
                             .child(
                                 div()

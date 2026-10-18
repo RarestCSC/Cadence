@@ -5,9 +5,8 @@ use gpui::{Image, ImageFormat};
 use image::{ImageReader, imageops::FilterType};
 
 const MAX_DIMENSION: u32 = 2560;
-const BLUR_SIGMA: f32 = 28.;
 
-pub(crate) fn load(path: &Path) -> Result<Arc<Image>> {
+pub(crate) fn load(path: &Path, blur: u32) -> Result<Arc<Image>> {
     let image = ImageReader::open(path)
         .context("无法打开背景图片")?
         .with_guessed_format()
@@ -19,7 +18,11 @@ pub(crate) fn load(path: &Path) -> Result<Arc<Image>> {
     } else {
         image
     };
-    let blurred = image.blur(BLUR_SIGMA);
+    let blurred = if blur > 0 {
+        image.blur(blur as f32)
+    } else {
+        image
+    };
     let mut bytes = Cursor::new(Vec::new());
     blurred
         .write_to(&mut bytes, image::ImageFormat::Png)
@@ -40,7 +43,7 @@ mod tests {
 
     #[test]
     fn missing_background_is_reported() {
-        assert!(load(&temp_path("missing.png")).is_err());
+        assert!(load(&temp_path("missing.png"), 28).is_err());
     }
 
     #[test]
@@ -48,7 +51,7 @@ mod tests {
         let path = temp_path("small.png");
         let image = image::RgbaImage::from_pixel(8, 8, image::Rgba([32, 96, 200, 255]));
         image.save(&path).expect("write fixture");
-        let loaded = load(&path).expect("load background");
+        let loaded = load(&path, 8).expect("load background");
         let _ = std::fs::remove_file(&path);
         assert!(Arc::strong_count(&loaded) == 1);
     }

@@ -828,6 +828,8 @@ fn player_bar(
         .h(px(PLAYER_BAR_HEIGHT))
         .w_full()
         .flex_shrink_0()
+        .rounded_bl(px(super::WINDOW_CORNER_RADIUS))
+        .rounded_br(px(super::WINDOW_CORNER_RADIUS))
         .bg(background)
         .child(progress.clone())
         // 进度条与控制区为同级边界；若缓存共同父视图，进度变脏会连带刷新整个子树。
