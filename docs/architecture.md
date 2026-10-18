@@ -38,7 +38,7 @@
 
 设置项 `background_image` 保存自定义背景路径，`background_blur`（0–64px）和 `background_opacity`（0–100%）控制模糊半径与玻璃面板不透明度。设置页通过 xdg-desktop-portal 文件选择器设置或清除该路径，`background.rs` 在后台线程读取图片、限制到 2560px 并按设置的高斯半径模糊后编码为 PNG；`CadenceView::reload_background_image` 用版本号丢弃过期结果，失败时提示并退回纯色背景。启动时 `main` 在创建窗口前同步解码首张背景并传入 `CadenceView::new`，避免先显示纯色主题再跳变到背景图。
 
-`CadenceView::render_background` 先绘制不透明主题底色，再按需叠加 `object_fit=Cover` 的背景图和一层明暗遮罩；`Preferences::apply_theme` 依据 `background_image.is_some()` 选择毛玻璃 token，`design::apply` 的 `glass_opacity` 参数按设置给背景、面板、侧栏、弹窗和播放栏统一计算 alpha，不再维护独立的 `glass_palette`。`window` 参数为 `Option<&mut Window>`，异步结果可以无窗口重建主题。
+`CadenceView::render_background` 先绘制不透明主题底色，再按需叠加 `object_fit=Cover` 的背景图和一层明暗遮罩；`Preferences::apply_theme` 依据 `background_image.is_some()` 选择毛玻璃 token，`design::apply` 的 `glass_opacity` 参数按设置给背景、面板、侧栏、弹窗和播放栏统一计算 alpha，不再维护独立的 `glass_palette`。玻璃模式下表格的 `table` / `table_head` / `table_even` token 置为透明，歌单、搜索和歌手页也不再额外铺一层 `background`，避免页面、表格容器和表头多层 alpha 叠加后失去背景。`window` 参数为 `Option<&mut Window>`，异步结果可以无窗口重建主题。
 
 ### 窗口装饰与窗口控件
 
@@ -105,6 +105,8 @@
 ### 控件、设置与长任务
 
 `SettingsPage` 内的 `SettingsInputs` 拥有设置输入框及默认值、掩码和校验，`set_fonts` 仅回填三个字体输入框。“恢复默认”先改输入框，“应用字体”才更新字体、主题、排版缓存并提交保存。其他设置的读值、即时生效、保存和通知顺序由各自的事件处理方法负责。
+
+歌曲表格的行号列是独立命中区：非当前曲点击发出 `TrackTableEvent::Play(source, row)`，当前曲发出 `TogglePlay`；`source` 区分歌单、搜索和歌手表格，浏览器实体据此选择对应播放路径或调用 `Playback::toggle_playback`。
 
 `Preferences` 持有唯一的 `SettingsWriter`，UI 将 `AppSettings` 快照发送到 FIFO 队列，不防抖或合并；文件更新会晚于 UI 提交请求。保存任务逐条等待 `spawn_blocking` 完成；`SettingsStore` 消费快照，规范化、序列化后写入同目录临时文件，再用 rename 原子替换正式文件。保存途中进程终止不会截断已提交的配置；残留临时文件不参与启动读取，下次保存时覆盖。磁盘回写交给操作系统，不使用 fsync，不承诺断电后的持久性。保存错误当前被忽略。
 

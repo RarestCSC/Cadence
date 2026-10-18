@@ -32,7 +32,10 @@ use super::{
     settings::SettingsPage,
 };
 use crate::{
-    library::{PlaylistListDelegate, SearchCardGridDelegate, TrackTableDelegate, TrackTableEvent},
+    library::{
+        PlaylistListDelegate, SearchCardGridDelegate, TrackTableDelegate, TrackTableEvent,
+        TrackTableSource,
+    },
     settings::LibraryCache,
     singleflight::SingleFlight,
 };
@@ -113,7 +116,11 @@ impl BrowserView {
         let (track_event_sender, mut track_event_receiver) = mpsc::unbounded_channel();
         let track_table = cx.new(|cx| {
             TableState::new(
-                TrackTableDelegate::new(load_more_sender, track_event_sender.clone()),
+                TrackTableDelegate::new(
+                    load_more_sender,
+                    track_event_sender.clone(),
+                    TrackTableSource::Playlist,
+                ),
                 window,
                 cx,
             )
@@ -123,7 +130,11 @@ impl BrowserView {
         });
         let search_track_table = cx.new(|cx| {
             TableState::new(
-                TrackTableDelegate::new(search_load_more_sender, track_event_sender.clone()),
+                TrackTableDelegate::new(
+                    search_load_more_sender,
+                    track_event_sender.clone(),
+                    TrackTableSource::Search,
+                ),
                 window,
                 cx,
             )
@@ -145,8 +156,12 @@ impl BrowserView {
         });
         let artist_song_table = cx.new(|cx| {
             TableState::new(
-                TrackTableDelegate::new(artist_song_load_more_sender, track_event_sender.clone())
-                    .without_header(),
+                TrackTableDelegate::new(
+                    artist_song_load_more_sender,
+                    track_event_sender.clone(),
+                    TrackTableSource::Artist,
+                )
+                .without_header(),
                 window,
                 cx,
             )
@@ -255,6 +270,15 @@ impl BrowserView {
                         TrackTableEvent::Unlike(track) => this.unlike_track(track, cx),
                         TrackTableEvent::Playlist(playlist) => {
                             this.open_home_playlist(playlist, window, cx)
+                        }
+                        TrackTableEvent::Play(source, index) => match source {
+                            TrackTableSource::Playlist => this.select_track(index, cx),
+                            TrackTableSource::Search => this.select_search_track(index, cx),
+                            TrackTableSource::Artist => this.select_artist_track(index, cx),
+                        },
+                        TrackTableEvent::TogglePlay => {
+                            this.playback
+                                .update(cx, |playback, cx| playback.toggle_playback(cx));
                         }
                     })
                 });

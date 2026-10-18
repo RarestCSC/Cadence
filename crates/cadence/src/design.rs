@@ -245,6 +245,13 @@ fn theme_config(
             None => color.into(),
         }
     };
+    let table = |color: &'static str| -> SharedString {
+        if glass_alpha.is_some() {
+            "#00000000".into()
+        } else {
+            color.into()
+        }
+    };
     let mut colors = ThemeConfigColors::default();
     colors.background = Some(panel(palette.background, 0.));
     colors.foreground = Some(palette.foreground.into());
@@ -311,13 +318,13 @@ fn theme_config(
     colors.list_hover = Some(palette.hover.into());
     colors.list_even = Some(panel(palette.sidebar, 0.06));
     colors.list_head = Some(panel(palette.sidebar, 0.06));
-    colors.table = Some(panel(palette.background, 0.));
-    colors.table_head = Some(panel(palette.background, 0.));
+    colors.table = Some(table(palette.background));
+    colors.table_head = Some(table(palette.background));
     colors.table_head_foreground = Some(palette.muted_foreground.into());
     colors.table_hover = Some(palette.hover.into());
     colors.table_active = Some(palette.active.into());
     colors.table_active_border = Some("#00000000".into());
-    colors.table_even = Some(panel(palette.background, 0.));
+    colors.table_even = Some(table(palette.background));
     colors.table_row_border = Some("#00000000".into());
     colors.slider_bar = Some(palette.primary.into());
     colors.slider_thumb = Some(palette.primary.into());

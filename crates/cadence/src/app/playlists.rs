@@ -1026,7 +1026,6 @@ impl BrowserView {
         scale_factor: f32,
         cx: &mut Context<Self>,
     ) -> AnyElement {
-        let theme = cx.theme().clone();
         let header = if let Some(playlist) = self.playlist.selected.as_ref()
             && matches!(playlist.id, UserPlaylistId::Artist { .. })
         {
@@ -1047,7 +1046,6 @@ impl BrowserView {
             .flex_1()
             .min_w_0()
             .h_full()
-            .bg(theme.background)
             .child(header)
             .child(
                 div()
@@ -1056,17 +1054,13 @@ impl BrowserView {
                     .px(page_horizontal_padding(narrow))
                     .pb_4()
                     .child(
-                        div()
-                            .size_full()
-                            .overflow_hidden()
-                            .bg(theme.background)
-                            .child(
-                                DataTable::new(&self.track_table)
-                                    .bordered(false)
-                                    .stripe(false)
-                                    .header_row_height(px(36.))
-                                    .with_size(px(64.)),
-                            ),
+                        div().size_full().overflow_hidden().child(
+                            DataTable::new(&self.track_table)
+                                .bordered(false)
+                                .stripe(false)
+                                .header_row_height(px(36.))
+                                .with_size(px(64.)),
+                        ),
                     ),
             )
             .into_any_element()

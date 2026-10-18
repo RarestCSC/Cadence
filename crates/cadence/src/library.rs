@@ -21,6 +21,13 @@ use gpui_component::{
 };
 use tokio::sync::mpsc;
 
+#[derive(Clone, Copy, Debug)]
+pub enum TrackTableSource {
+    Playlist,
+    Search,
+    Artist,
+}
+
 #[derive(Clone)]
 #[allow(clippy::large_enum_variant)]
 pub enum TrackTableEvent {
@@ -28,6 +35,8 @@ pub enum TrackTableEvent {
     Album(SearchAlbum),
     Unlike(Track),
     Playlist(UserPlaylist),
+    Play(TrackTableSource, usize),
+    TogglePlay,
 }
 
 pub enum SearchCard {
@@ -625,12 +634,14 @@ pub struct TrackTableDelegate {
     available_width: Pixels,
     load_more_sender: mpsc::Sender<()>,
     event_sender: mpsc::UnboundedSender<TrackTableEvent>,
+    source: TrackTableSource,
 }
 
 impl TrackTableDelegate {
     pub fn new(
         load_more_sender: mpsc::Sender<()>,
         event_sender: mpsc::UnboundedSender<TrackTableEvent>,
+        source: TrackTableSource,
     ) -> Self {
         Self {
             columns: track_columns(px(792.)),
@@ -646,6 +657,7 @@ impl TrackTableDelegate {
             available_width: px(792.),
             load_more_sender,
             event_sender,
+            source,
         }
     }
 
@@ -866,10 +878,16 @@ impl TableDelegate for TrackTableDelegate {
                         ))
                         .into_any_element()
                 } else if self.playing_index == Some(row_ix) {
+                    let sender = self.event_sender.clone();
                     h_flex()
+                        .id(("track-toggle", row_ix))
                         .w_full()
                         .h_full()
                         .text_color(cx.theme().primary)
+                        .on_click(move |_, _, cx| {
+                            cx.stop_propagation();
+                            let _ = sender.send(TrackTableEvent::TogglePlay);
+                        })
                         .child(media_icon_hsla(
                             if self.playback_active {
                                 MediaIcon::Pause
@@ -882,11 +900,18 @@ impl TableDelegate for TrackTableDelegate {
                         .into_any_element()
                 } else {
                     let group = format!("track-row-{row_ix}");
+                    let sender = self.event_sender.clone();
+                    let source = self.source;
                     h_flex()
+                        .id(("track-play", row_ix))
                         .relative()
                         .w_full()
                         .h_full()
                         .text_color(cx.theme().muted_foreground)
+                        .on_click(move |_, _, cx| {
+                            cx.stop_propagation();
+                            let _ = sender.send(TrackTableEvent::Play(source, row_ix));
+                        })
                         .child(
                             div()
                                 .group_hover(group.clone(), |style| style.opacity(0.))

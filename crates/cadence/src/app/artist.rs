@@ -508,7 +508,6 @@ impl BrowserView {
             .flex_1()
             .min_w_0()
             .h_full()
-            .bg(theme.background)
             .child(
                 div().flex_1().min_h_0().overflow_y_scrollbar().child(
                     v_flex()
@@ -662,7 +661,6 @@ impl BrowserView {
             .min_h_0()
             .min_w_0()
             .h_full()
-            .bg(theme.background)
             .px(page_horizontal_padding(narrow))
             .child(
                 self.render_artist_collection_header(

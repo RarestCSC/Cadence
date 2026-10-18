@@ -592,7 +592,6 @@ impl BrowserView {
         v_flex()
             .flex_1()
             .min_h_0()
-            .bg(theme.background)
             .child(
                 v_flex()
                     .debug_selector(|| "search-category-header".into())
