@@ -1,5 +1,7 @@
 //! 设置页面及偏好的即时生效；序列化格式、默认值和磁盘保存由 crate::settings 管理。
 
+use anyhow::Context as _;
+use ashpd::desktop::file_chooser::{FileFilter, SelectedFiles};
 use cadence_api::Quality;
 use gpui::{prelude::*, *};
 use gpui_component::{
@@ -7,7 +9,6 @@ use gpui_component::{
     button::{Button, ButtonVariants as _},
     h_flex,
     input::{Input, InputEvent, InputState, MaskPattern, NumberInput, NumberInputEvent},
-    menu::{DropdownMenu as _, PopupMenuItem},
     scroll::ScrollableElement as _,
     v_flex,
 };
@@ -15,7 +16,8 @@ use gpui_component::{
 use super::preferences::Preferences;
 use super::{CadenceView, page_horizontal_padding};
 use crate::cache::audio_cache_limit_bytes;
-use crate::design::{self, ColorTheme};
+use crate::design;
+use crate::runtime::RUNTIME;
 use crate::settings::{
     AppSettings, ColorThemeMode, FrameRate, MAX_IMAGE_CACHE_CAPACITY, MAX_LYRIC_SCALE_PERCENT,
     MAX_NAVIGATION_HISTORY_LIMIT, MIN_SCALE_PERCENT, TrayIconStyle, WindowDecoration,
@@ -167,11 +169,9 @@ impl SettingsInputs {
 }
 
 pub(super) enum SettingsAction {
-    ColorTheme {
-        theme: ColorTheme,
-        light: bool,
-    },
     ThemeMode(ColorThemeMode),
+    PickBackground,
+    ClearBackground,
     TrayIcon(TrayIconStyle),
     CheckOnStartup(bool),
     WindowDecoration(WindowDecoration),
@@ -573,31 +573,14 @@ impl Render for SettingsPage {
                         ),
                 )
         };
-        let theme_picker = |prefix: &'static str, selected: ColorTheme, light: bool| {
-            let view = cx.entity().clone();
-            Button::new(format!("settings-{prefix}-{}", selected.id()))
-                .label(selected.label())
-                .outline()
-                .w_full()
-                .h(px(38.))
-                .dropdown_menu(move |menu, window, _| {
-                    ColorTheme::ALL.into_iter().fold(menu, |menu, color_theme| {
-                        menu.item(
-                            PopupMenuItem::new(color_theme.label())
-                                .checked(selected == color_theme)
-                                .on_click(window.listener_for(&view, move |_, _, _, cx| {
-                                    cx.emit(SettingsAction::ColorTheme {
-                                        theme: color_theme,
-                                        light,
-                                    })
-                                })),
-                        )
-                    })
-                })
-        };
-        let light_theme_picker = theme_picker("light", settings.light_color_theme, true);
-        let dark_theme_picker = theme_picker("dark", settings.dark_color_theme, false);
         let selected_theme_mode = settings.color_theme_mode;
+        let has_background = settings.background_image.is_some();
+        let background_name = settings
+            .background_image
+            .as_deref()
+            .and_then(|path| std::path::Path::new(path).file_name())
+            .and_then(|name| name.to_str())
+            .map(str::to_owned);
         let theme_mode_buttons = ColorThemeMode::ALL
             .into_iter()
             .map(|mode| {
@@ -750,34 +733,60 @@ impl Render for SettingsPage {
                                                 .child("选择固定的亮色、暗色，或跟随系统外观"),
                                         )
                                         .child(h_flex().w_full().gap_1().children(theme_mode_buttons))
-                                        .child(div().font_medium().child("主题配色"))
+                                )
+                                .child(
+                                    v_flex()
+                                        .gap_2()
+                                        .pt_4()
+                                        .border_t_1()
+                                        .border_color(theme.border)
+                                        .child(div().font_medium().child("背景"))
                                         .child(
                                             div()
                                                 .text_xs()
                                                 .text_color(theme.muted_foreground)
-                                                .child("分别设置亮色和暗色模式使用的主题"),
+                                                .child("选择一张图片作为毛玻璃背景，图片会自动模糊"),
                                         )
                                         .child(
                                             h_flex()
                                                 .w_full()
                                                 .gap_2()
+                                                .items_center()
                                                 .child(
-                                                    v_flex()
+                                                    Button::new("pick-background")
+                                                        .label(if has_background {
+                                                            "更换图片"
+                                                        } else {
+                                                            "选择图片"
+                                                        })
+                                                        .outline()
                                                         .flex_1()
-                                                        .gap_1()
-                                                        .pl_4()
-                                                        .child(div().child("亮色"))
-                                                        .child(light_theme_picker),
+                                                        .h(px(38.))
+                                                        .on_click(cx.listener(|_, _, _, cx| {
+                                                            cx.emit(SettingsAction::PickBackground)
+                                                        })),
                                                 )
-                                                .child(
-                                                    v_flex()
-                                                        .flex_1()
-                                                        .gap_1()
-                                                        .pl_4()
-                                                        .child(div().child("暗色"))
-                                                        .child(dark_theme_picker),
-                                                ),
+                                                .when(has_background, |row| {
+                                                    row.child(
+                                                        Button::new("clear-background")
+                                                            .label("清除")
+                                                            .ghost()
+                                                            .h(px(38.))
+                                                            .on_click(cx.listener(|_, _, _, cx| {
+                                                                cx.emit(SettingsAction::ClearBackground)
+                                                            })),
+                                                    )
+                                                }),
                                         )
+                                        .when_some(background_name, |this, name| {
+                                            this.child(
+                                                div()
+                                                    .text_xs()
+                                                    .truncate()
+                                                    .text_color(theme.muted_foreground)
+                                                    .child(name),
+                                            )
+                                        }),
                                 )
                                 .child(
                                     v_flex()
@@ -1073,10 +1082,9 @@ impl CadenceView {
         cx: &mut Context<Self>,
     ) {
         match action {
-            SettingsAction::ColorTheme { theme, light } => {
-                self.set_color_theme(*theme, *light, window, cx)
-            }
             SettingsAction::ThemeMode(mode) => self.set_color_theme_mode(*mode, window, cx),
+            SettingsAction::PickBackground => self.pick_background(cx),
+            SettingsAction::ClearBackground => self.set_background_image(None, cx),
             SettingsAction::TrayIcon(style) => self.set_tray_icon_style(*style, cx),
             SettingsAction::CheckOnStartup(enabled) => {
                 self.set_check_updates_on_startup(*enabled, cx)
@@ -1126,23 +1134,46 @@ impl CadenceView {
         }
     }
 
-    fn set_color_theme(
-        &mut self,
-        color_theme: ColorTheme,
-        light: bool,
-        window: &mut Window,
-        cx: &mut Context<Self>,
-    ) {
+    fn pick_background(&mut self, cx: &mut Context<Self>) {
+        let task = RUNTIME.spawn(async {
+            let files = SelectedFiles::open_file()
+                .title("选择背景图片")
+                .modal(true)
+                .filter(
+                    FileFilter::new("图片")
+                        .mimetype("image/png")
+                        .mimetype("image/jpeg")
+                        .mimetype("image/webp"),
+                )
+                .send()
+                .await?
+                .response()?;
+            let uri = files.uris().first().context("未选择文件")?;
+            let url = url::Url::parse(uri.as_str()).context("无效的文件地址")?;
+            url.to_file_path()
+                .map_err(|_| anyhow::anyhow!("不是本地文件"))
+        });
+        cx.spawn(async move |this, cx| {
+            let result = task
+                .await
+                .map_err(anyhow::Error::from)
+                .and_then(|result| result);
+            let _ = this.update(cx, |this, cx| match result {
+                Ok(path) => {
+                    this.set_background_image(Some(path.to_string_lossy().into_owned()), cx)
+                }
+                Err(error) => this.notify_error(format!("选择背景图片失败：{error:#}"), cx),
+            });
+        })
+        .detach();
+    }
+
+    fn set_background_image(&mut self, path: Option<String>, cx: &mut Context<Self>) {
         let changed = self.preferences.update(cx, |preferences, cx| {
-            let selected = if light {
-                &mut preferences.settings.light_color_theme
-            } else {
-                &mut preferences.settings.dark_color_theme
-            };
-            if *selected == color_theme {
+            if preferences.settings.background_image == path {
                 return false;
             }
-            *selected = color_theme;
+            preferences.settings.background_image = path;
             cx.notify();
             true
         });
@@ -1150,8 +1181,10 @@ impl CadenceView {
             return;
         }
         self.preferences
-            .update(cx, |preferences, cx| preferences.apply_theme(window, cx));
+            .update(cx, |preferences, cx| preferences.apply_theme(None, cx));
+        self.reload_background_image(cx);
         self.preferences.read(cx).save();
+        cx.notify();
     }
 
     fn set_color_theme_mode(
@@ -1167,8 +1200,9 @@ impl CadenceView {
             preferences.settings.color_theme_mode = mode;
             cx.notify();
         });
-        self.preferences
-            .update(cx, |preferences, cx| preferences.apply_theme(window, cx));
+        self.preferences.update(cx, |preferences, cx| {
+            preferences.apply_theme(Some(window), cx)
+        });
         self.preferences.read(cx).save();
     }
 
@@ -1328,8 +1362,9 @@ impl CadenceView {
             );
             cx.notify();
         });
-        self.preferences
-            .update(cx, |preferences, cx| preferences.apply_theme(window, cx));
+        self.preferences.update(cx, |preferences, cx| {
+            preferences.apply_theme(Some(window), cx)
+        });
         self.lyrics_view
             .update(cx, |view, cx| view.reset_layout(cx));
         self.preferences.read(cx).save();

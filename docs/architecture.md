@@ -32,6 +32,14 @@
 
 底层模块中，`player.rs` 管音频设备与解码，`cache.rs` 管音频缓存与流，`http.rs` 管图片缓存，`settings.rs` 管设置和持久化数据格式，`credentials.rs` 管系统钥匙串，`library.rs` 管列表/表格 Delegate。
 
+### 主题与背景
+
+`design.rs` 只保留 Ayu Light / Ayu Dark 两个内置主题；`color_theme_mode` 决定跟随系统还是固定亮暗。历史配置中的其他主题 ID 通过 serde alias 迁移到对应的 Ayu 主题，`AppSettings::normalized` 再统一校正亮色/暗色槽位。
+
+设置项 `background_image` 保存自定义背景路径。设置页通过 xdg-desktop-portal 文件选择器设置或清除该路径，`background.rs` 在后台线程读取图片、限制到 2560px 并高斯模糊后编码为 PNG；`CadenceView::reload_background_image` 用版本号丢弃过期结果，失败时提示并退回纯色背景。
+
+`CadenceView::render_background` 先绘制不透明主题底色，再按需叠加 `object_fit=Cover` 的背景图和一层明暗遮罩；`Preferences::apply_theme` 依据 `background_image.is_some()` 选择毛玻璃调色板，让主区域、侧栏、播放栏和卡片半透明，`window` 参数为 `Option<&mut Window>`，异步结果可以无窗口重建主题。
+
 ### GPUI 依赖
 
 `gpui-base` / `gpui-component` 固定为官方 0.7.3，底层使用 `gpui-pre 0.3.9`。相关 GPUI 源码以快照形式放在 [vendor/gpui](../vendor/gpui)，来自 `amtoaer/zed@a417dfbf`；根 `Cargo.toml` 通过 `[patch.crates-io]` 指向本地路径，避免应用与组件使用不同来源的实体、窗口和绘制类型。`vendor/gpui` 是独立 workspace，根工作区的 `exclude` 明确排除它，构建不再拉取 Zed 仓库。

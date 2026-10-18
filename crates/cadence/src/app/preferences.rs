@@ -36,7 +36,7 @@ impl Preferences {
         }
     }
 
-    pub(super) fn apply_theme(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+    pub(super) fn apply_theme(&mut self, window: Option<&mut Window>, cx: &mut Context<Self>) {
         let appearance = cx.window_appearance();
         let mode = self.settings.color_theme_mode.resolve(appearance);
         self.color_theme = match mode {
@@ -48,8 +48,9 @@ impl Preferences {
             self.settings.dark_color_theme,
             mode,
             matches!(self.settings.color_theme_mode, ColorThemeMode::Auto),
+            self.settings.background_image.is_some(),
             &self.fonts,
-            Some(window),
+            window,
             cx,
         );
         crate::set_tray_icon_style(self.settings.tray_icon_style.resolve(appearance), cx);

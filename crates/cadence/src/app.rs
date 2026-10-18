@@ -121,6 +121,8 @@ pub struct CadenceView {
     lyrics: Entity<LyricsCache>,
     lyrics_view: Entity<LyricsView>,
     preferences: Entity<Preferences>,
+    background_image: Option<Arc<Image>>,
+    background_generation: u64,
     update_check_in_progress: bool,
 
     window_handle: AnyWindowHandle,
@@ -262,12 +264,15 @@ impl CadenceView {
             lyrics,
             lyrics_view,
             preferences,
+            background_image: None,
+            background_generation: 0,
             update_check_in_progress: false,
             window_handle: window.window_handle(),
             _subscriptions: subscriptions,
             _window_subscriptions: Vec::new(),
         };
         view.attach_window(window, cx);
+        view.reload_background_image(cx);
         if !initial_errors.is_empty() {
             view.notify_error(initial_errors.join("；"), cx);
         }
@@ -315,8 +320,9 @@ impl CadenceView {
                 },
             ),
             cx.observe_window_appearance(window, |this, window, cx| {
-                this.preferences
-                    .update(cx, |preferences, cx| preferences.apply_theme(window, cx))
+                this.preferences.update(cx, |preferences, cx| {
+                    preferences.apply_theme(Some(window), cx)
+                })
             }),
             cx.observe_window_bounds(window, |this, window, cx| {
                 let size = window.window_bounds().get_bounds().size;
@@ -684,6 +690,62 @@ impl CadenceView {
             .into_any_element()
     }
 
+    pub(super) fn reload_background_image(&mut self, cx: &mut Context<Self>) {
+        let path = self.preferences.read(cx).settings.background_image.clone();
+        self.background_generation = self.background_generation.wrapping_add(1);
+        let generation = self.background_generation;
+        let Some(path) = path else {
+            self.background_image = None;
+            cx.notify();
+            return;
+        };
+        let task = cx
+            .background_executor()
+            .spawn(async move { crate::background::load(std::path::Path::new(&path)) });
+        cx.spawn(async move |this, cx| {
+            let result = task.await;
+            let _ = this.update(cx, |this, cx| {
+                if this.background_generation != generation {
+                    return;
+                }
+                match result {
+                    Ok(image) => this.background_image = Some(image),
+                    Err(error) => {
+                        this.background_image = None;
+                        this.notify_error(format!("背景图片加载失败：{error:#}"), cx);
+                    }
+                }
+                cx.notify();
+            });
+        })
+        .detach();
+    }
+
+    fn render_background(&self, cx: &App) -> AnyElement {
+        let theme = cx.theme();
+        let mut base = theme.background;
+        base.a = 1.;
+        let layer = div().absolute().inset_0().bg(base);
+        let Some(image) = self.background_image.clone() else {
+            return layer.into_any_element();
+        };
+        let tint = if matches!(theme.mode, gpui_component::ThemeMode::Dark) {
+            hsla(0., 0., 0., 0.22)
+        } else {
+            hsla(0., 0., 1., 0.16)
+        };
+        layer
+            .child(
+                img(image)
+                    .absolute()
+                    .inset_0()
+                    .size_full()
+                    .object_fit(ObjectFit::Cover),
+            )
+            .child(div().absolute().inset_0().bg(tint))
+            .into_any_element()
+    }
+
     fn render_window_controls(&self, window: &mut Window, cx: &mut Context<Self>) -> AnyElement {
         let theme = cx.theme().clone();
         let lyrics_controls = self.cover_backdrop_expanded;
@@ -826,7 +888,7 @@ impl Render for CadenceView {
             .left(px(-42.))
             .size_full()
             .child(self.notifications.clone());
-        if self.account.read(cx).state == AccountState::SignedIn {
+        let content = if self.account.read(cx).state == AccountState::SignedIn {
             div()
                 .relative()
                 .size_full()
@@ -845,6 +907,12 @@ impl Render for CadenceView {
                     this.child(deferred(self.render_window_controls(window, cx)).with_priority(20))
                 })
                 .into_any_element()
-        }
+        };
+        div()
+            .relative()
+            .size_full()
+            .child(self.render_background(cx))
+            .child(content)
+            .into_any_element()
     }
 }

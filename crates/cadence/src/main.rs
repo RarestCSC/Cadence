@@ -1,4 +1,5 @@
 mod app;
+mod background;
 mod cache;
 mod credentials;
 mod design;
@@ -170,6 +171,7 @@ fn main() {
                 settings.dark_color_theme,
                 initial_mode,
                 matches!(settings.color_theme_mode, settings::ColorThemeMode::Auto),
+                settings.background_image.is_some(),
                 &fonts,
                 None,
                 cx,

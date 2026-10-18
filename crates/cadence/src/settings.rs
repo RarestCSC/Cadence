@@ -244,6 +244,7 @@ pub struct AppSettings {
     pub color_theme_mode: ColorThemeMode,
     pub light_color_theme: ColorTheme,
     pub dark_color_theme: ColorTheme,
+    pub background_image: Option<String>,
     #[serde(default, rename = "color_theme", skip_serializing)]
     legacy_color_theme: Option<ColorTheme>,
     pub tray_icon_style: TrayIconStyle,
@@ -278,8 +279,9 @@ impl Default for AppSettings {
             volume: 1.,
             last_nonzero_volume: 1.,
             color_theme_mode: ColorThemeMode::default(),
-            light_color_theme: ColorTheme::RosePineDawn,
-            dark_color_theme: ColorTheme::RosePineMoon,
+            light_color_theme: ColorTheme::AyuLight,
+            dark_color_theme: ColorTheme::AyuDark,
+            background_image: None,
             legacy_color_theme: None,
             tray_icon_style: TrayIconStyle::default(),
             window_decoration: WindowDecoration::default(),
@@ -313,6 +315,12 @@ impl AppSettings {
             self.light_color_theme = theme;
             self.dark_color_theme = theme;
         }
+        self.light_color_theme = ColorTheme::AyuLight;
+        self.dark_color_theme = ColorTheme::AyuDark;
+        self.background_image = self.background_image.take().and_then(|path| {
+            let path = path.trim();
+            (!path.is_empty()).then(|| path.to_owned())
+        });
         self.volume = normalized_volume(self.volume, 1.);
         self.last_nonzero_volume = normalized_volume(self.last_nonzero_volume, 1.).max(0.01);
         self.ui_font_families =
@@ -653,8 +661,9 @@ mod tests {
         assert_eq!(settings.volume, 1.);
         assert_eq!(settings.last_nonzero_volume, 1.);
         assert_eq!(settings.color_theme_mode, ColorThemeMode::Auto);
-        assert_eq!(settings.light_color_theme, ColorTheme::RosePineDawn);
-        assert_eq!(settings.dark_color_theme, ColorTheme::RosePineMoon);
+        assert_eq!(settings.light_color_theme, ColorTheme::AyuLight);
+        assert_eq!(settings.dark_color_theme, ColorTheme::AyuDark);
+        assert_eq!(settings.background_image, None);
         assert_eq!(settings.tray_icon_style, TrayIconStyle::Auto);
         assert_eq!(settings.window_decoration, WindowDecoration::Ssd);
         assert_eq!(settings.ui_font_families, [".SystemUIFont"]);
@@ -707,7 +716,7 @@ mod tests {
             .normalized();
         assert_eq!(settings.color_theme_mode, ColorThemeMode::Auto);
         assert_eq!(settings.dark_color_theme, ColorTheme::AyuDark);
-        assert_eq!(settings.light_color_theme, ColorTheme::AyuDark);
+        assert_eq!(settings.light_color_theme, ColorTheme::AyuLight);
     }
 
     #[test]
@@ -723,17 +732,34 @@ mod tests {
     }
 
     #[test]
-    fn theme_mode_does_not_restrict_theme_choices() {
-        let settings = AppSettings {
-            color_theme_mode: ColorThemeMode::Light,
-            light_color_theme: ColorTheme::AyuDark,
-            dark_color_theme: ColorTheme::RosePineDawn,
+    fn background_image_path_is_trimmed_and_empty_is_cleared() {
+        let trimmed = AppSettings {
+            background_image: Some("  /tmp/background.png  ".to_owned()),
             ..Default::default()
-        };
+        }
+        .normalized();
         assert_eq!(
-            settings.active_color_theme(WindowAppearance::Dark),
-            ColorTheme::AyuDark
+            trimmed.background_image.as_deref(),
+            Some("/tmp/background.png")
         );
+        let cleared = AppSettings {
+            background_image: Some("   ".to_owned()),
+            ..Default::default()
+        }
+        .normalized();
+        assert_eq!(cleared.background_image, None);
+    }
+
+    #[test]
+    fn themes_are_normalized_to_ayu_light_and_dark() {
+        let settings = AppSettings {
+            light_color_theme: ColorTheme::AyuDark,
+            dark_color_theme: ColorTheme::AyuLight,
+            ..Default::default()
+        }
+        .normalized();
+        assert_eq!(settings.light_color_theme, ColorTheme::AyuLight);
+        assert_eq!(settings.dark_color_theme, ColorTheme::AyuDark);
     }
 
     #[test]
@@ -751,8 +777,9 @@ mod tests {
             volume: 2.,
             last_nonzero_volume: -1.,
             color_theme_mode: ColorThemeMode::Dark,
-            light_color_theme: ColorTheme::RosePineDawn,
-            dark_color_theme: ColorTheme::CatppuccinMocha,
+            light_color_theme: ColorTheme::AyuLight,
+            dark_color_theme: ColorTheme::AyuDark,
+            background_image: None,
             legacy_color_theme: None,
             tray_icon_style: TrayIconStyle::Light,
             window_decoration: WindowDecoration::Csd,
@@ -821,8 +848,9 @@ mod tests {
             volume: 0.37,
             last_nonzero_volume: 0.64,
             color_theme_mode: ColorThemeMode::Auto,
-            light_color_theme: ColorTheme::KanagawaWave,
-            dark_color_theme: ColorTheme::EverforestDark,
+            light_color_theme: ColorTheme::AyuLight,
+            dark_color_theme: ColorTheme::AyuDark,
+            background_image: None,
             legacy_color_theme: None,
             tray_icon_style: TrayIconStyle::Dark,
             window_decoration: WindowDecoration::Csd,
