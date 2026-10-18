@@ -1,0 +1,330 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  CARGO_INCREMENTAL: "0"
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: "1"
+
+jobs:
+  validate:
+    name: Validate release tag
+    runs-on: ubuntu-24.04
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - name: Check out tagged source
+        uses: actions/checkout@v6
+
+      - name: Match tag and Cargo versions
+        id: version
+        shell: bash
+        run: |
+          set -euo pipefail
+          version="${GITHUB_REF_NAME#v}"
+          manifest_version="$(sed -n 's/^version = "\([^"]*\)"/\1/p' Cargo.toml | head -n 1)"
+
+          if [[ ! "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "release tag must use the form vMAJOR.MINOR.PATCH" >&2
+            exit 1
+          fi
+          if [[ "$version" != "$manifest_version" ]]; then
+            echo "tag version $version does not match Cargo version $manifest_version" >&2
+            exit 1
+          fi
+
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+  build-linux:
+    name: Linux ${{ matrix.asset_arch }}
+    needs: validate
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-22.04
+            target: x86_64-unknown-linux-gnu
+            asset_arch: amd64
+            nfpm_download_arch: x86_64
+          - runner: ubuntu-22.04-arm
+            target: aarch64-unknown-linux-gnu
+            asset_arch: arm64
+            nfpm_download_arch: arm64
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 120
+    steps:
+      - name: Check out tagged source
+        uses: actions/checkout@v6
+
+      - name: Install system build dependencies
+        shell: bash
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes --no-install-recommends \
+            build-essential \
+            clang \
+            cmake \
+            libasound2-dev \
+            libfontconfig1-dev \
+            libglib2.0-dev \
+            libwayland-dev \
+            libx11-xcb-dev \
+            libxkbcommon-x11-dev \
+            libzstd-dev \
+            libvulkan1 \
+            pkg-config
+
+      - name: Install Rust
+        shell: bash
+        run: |
+          rustup toolchain install --profile minimal --target "${{ matrix.target }}"
+
+      - name: Restore Rust build cache
+        uses: actions/cache@v5
+        with:
+          path: |
+            ~/.cargo/git
+            ~/.cargo/registry
+            target
+          key: release-${{ runner.os }}-${{ runner.arch }}-${{ matrix.target }}-${{ hashFiles('Cargo.lock') }}
+          restore-keys: |
+            release-${{ runner.os }}-${{ runner.arch }}-${{ matrix.target }}-
+
+      - name: Build Cadence
+        shell: bash
+        run: cargo build --locked --release --package cadence --target "${{ matrix.target }}"
+
+      - name: Create Linux archive
+        shell: bash
+        env:
+          VERSION: ${{ needs.validate.outputs.version }}
+          ASSET_ARCH: ${{ matrix.asset_arch }}
+          TARGET: ${{ matrix.target }}
+        run: |
+          set -euo pipefail
+          binary="target/$TARGET/release/cadence"
+
+          archive_name="cadence-v$VERSION-linux-$ASSET_ARCH"
+          archive_root="dist/$archive_name"
+          mkdir -p "$archive_root"
+          install -m755 "$binary" "$archive_root/cadence"
+          install -m644 README.md "$archive_root/README.md"
+          install -m644 THIRD_PARTY_NOTICES.md "$archive_root/THIRD_PARTY_NOTICES.md"
+          install -m644 packaging/linux/license-unknown.txt "$archive_root/license-unknown.txt"
+          tar -C dist -czf "dist/$archive_name.tar.gz" "$archive_name"
+
+      - name: Install nFPM
+        shell: bash
+        env:
+          NFPM_DOWNLOAD_ARCH: ${{ matrix.nfpm_download_arch }}
+        run: |
+          set -euo pipefail
+          nfpm_dir="$RUNNER_TEMP/nfpm"
+          mkdir -p "$nfpm_dir"
+          curl --fail --silent --show-error --location \
+            --output "$RUNNER_TEMP/nfpm.tar.gz" \
+            "https://github.com/goreleaser/nfpm/releases/download/v2.47.0/nfpm_2.47.0_Linux_${NFPM_DOWNLOAD_ARCH}.tar.gz"
+          tar -xzf "$RUNNER_TEMP/nfpm.tar.gz" -C "$nfpm_dir"
+          echo "$nfpm_dir" >> "$GITHUB_PATH"
+
+      - name: Build deb, RPM and Arch packages
+        env:
+          VERSION: ${{ needs.validate.outputs.version }}
+          ASSET_ARCH: ${{ matrix.asset_arch }}
+        run: packaging/build-packages.sh "$VERSION" "$ASSET_ARCH" dist
+
+      - name: Upload Linux release assets
+        uses: actions/upload-artifact@v7
+        with:
+          name: release-linux-${{ matrix.asset_arch }}
+          path: |
+            dist/cadence-v${{ needs.validate.outputs.version }}-linux-${{ matrix.asset_arch }}.tar.gz
+            dist/cadence-v${{ needs.validate.outputs.version }}-linux-${{ matrix.asset_arch }}.deb
+            dist/cadence-v${{ needs.validate.outputs.version }}-linux-${{ matrix.asset_arch }}.rpm
+            dist/cadence-v${{ needs.validate.outputs.version }}-linux-${{ matrix.asset_arch }}.pkg.tar.zst
+          if-no-files-found: error
+          retention-days: 7
+
+  appimage:
+    name: Linux AppImage ${{ matrix.asset_arch }}
+    needs:
+      - validate
+      - build-linux
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-22.04
+            asset_arch: amd64
+            tool_arch: x86_64
+          - runner: ubuntu-22.04-arm
+            asset_arch: arm64
+            tool_arch: aarch64
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 20
+    steps:
+      - name: Check out tagged source
+        uses: actions/checkout@v6
+
+      - name: Download prebuilt binary
+        uses: actions/download-artifact@v8
+        with:
+          name: release-linux-${{ matrix.asset_arch }}
+          path: dist
+
+      - name: Install packaging tools
+        shell: bash
+        env:
+          TOOL_ARCH: ${{ matrix.tool_arch }}
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          # dlopen-ed runtime libraries (wayland/EGL/vulkan + glvnd chain):
+          # invisible to linuxdeploy's ELF scan, hand-copied into the AppDir below
+          sudo apt-get install --yes --no-install-recommends \
+            libwayland-client0 \
+            libwayland-egl1 \
+            libegl1 \
+            libglvnd0 \
+            libvulkan1
+          # every non-excluded library in the binary's DT_NEEDED tree must be
+          # present on disk or linuxdeploy fails with "Could not find dependency"
+          # (it excludes libc/libm/libxcb/libX11/libfontconfig/libfreetype/
+          # libharfbuzz/libasound as system-provided; the rest get bundled)
+          sudo apt-get install --yes --no-install-recommends \
+            libbrotli1 \
+            libbz2-1.0 \
+            libglib2.0-0 \
+            libgraphite2-3 \
+            liblzma5 \
+            libpcre2-8-0 \
+            libpng16-16 \
+            libxau6 \
+            libxcb-xkb1 \
+            libxkbcommon0 \
+            libxkbcommon-x11-0 \
+            libxml2
+          # linuxdeploy ships as an AppImage only; the runners' default PATH has
+          # no unpacked tool, so download and extract it manually.
+          # NOTE: --appimage-extract unpacks into ./squashfs-root relative to
+          # the *current directory*, so cd into the tools dir first — running
+          # it from the workspace drops squashfs-root outside GITHUB_PATH and
+          # the next step fails with "linuxdeploy: command not found".
+          tools_dir="$HOME/.cache/appimage-tools"
+          mkdir -p "$tools_dir"
+          curl --fail --silent --show-error --location \
+            --output "$tools_dir/linuxdeploy.AppImage" \
+            "https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-${TOOL_ARCH}.AppImage"
+          chmod +x "$tools_dir/linuxdeploy.AppImage"
+          (cd "$tools_dir" && ./linuxdeploy.AppImage --appimage-extract >/dev/null)
+          test -x "$tools_dir/squashfs-root/usr/bin/linuxdeploy"
+          echo "$tools_dir/squashfs-root/usr/bin" >> "$GITHUB_PATH"
+
+      - name: Build AppImage
+        shell: bash
+        env:
+          VERSION: ${{ needs.validate.outputs.version }}
+          ASSET_ARCH: ${{ matrix.asset_arch }}
+          TRIPLET: ${{ matrix.tool_arch }}-linux-gnu
+          # appimagetool infers arch from the ELF header; pin it so the output
+          # name (Cadence-$ARCH.AppImage) and packaging target are deterministic
+          ARCH: ${{ matrix.tool_arch }}
+        run: |
+          set -euo pipefail
+          # belt and braces: don't rely on GITHUB_PATH propagation
+          export PATH="$HOME/.cache/appimage-tools/squashfs-root/usr/bin:$PATH"
+          tar -C dist -xzf "dist/cadence-v$VERSION-linux-$ASSET_ARCH.tar.gz"
+          binary="dist/cadence-v$VERSION-linux-$ASSET_ARCH/cadence"
+
+          appdir="AppDir"
+          install -Dm755 "$binary" "$appdir/usr/bin/cadence"
+          install -Dm644 packaging/linux/cadence.desktop "$appdir/usr/share/applications/cadence.desktop"
+          install -Dm644 packaging/linux/cadence.desktop "$appdir/cadence.desktop"
+          install -Dm644 packaging/linux/cadence.svg \
+            "$appdir/usr/share/icons/hicolor/scalable/apps/cadence.svg"
+
+          # libraries loaded at runtime via dlopen, invisible to linuxdeploy's
+          # scan (plus libGLdispatch for glvnd's libEGL, excluded by default).
+          # flat usr/lib: AppRun's LD_LIBRARY_PATH and the binary's RUNPATH
+          # ($ORIGIN/../lib) both resolve there
+          for lib in libwayland-client.so.0 libwayland-egl.so.1 libEGL.so.1 \
+                     libGLdispatch.so.0 libvulkan.so.1; do
+            install -Dm755 "/usr/lib/$TRIPLET/$lib" "$appdir/usr/lib/$lib"
+          done
+
+          linuxdeploy \
+            --appdir "$appdir" \
+            --desktop-file "$appdir/usr/share/applications/cadence.desktop" \
+            --icon-file "$appdir/usr/share/icons/hicolor/scalable/apps/cadence.svg" \
+            --output appimage
+
+          appimage_name="cadence-v$VERSION-linux-$ASSET_ARCH.AppImage"
+          mv -f Cadence-*.AppImage "$appimage_name"
+          echo "built $appimage_name"
+
+      - name: Upload AppImage release asset
+        uses: actions/upload-artifact@v7
+        with:
+          name: release-appimage-${{ matrix.asset_arch }}
+          path: cadence-v${{ needs.validate.outputs.version }}-linux-${{ matrix.asset_arch }}.AppImage
+          if-no-files-found: error
+          retention-days: 7
+
+  release:
+    name: Create draft release
+    needs:
+      - validate
+      - build-linux
+      - appimage
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - name: Download release assets
+        uses: actions/download-artifact@v8
+        with:
+          pattern: release-*
+          path: release-assets
+          merge-multiple: true
+
+      - name: Generate checksums
+        shell: bash
+        working-directory: release-assets
+        run: |
+          set -euo pipefail
+          find . -maxdepth 1 -type f ! -name SHA256SUMS -printf '%f\0' \
+            | sort -z \
+            | xargs -0 sha256sum > SHA256SUMS
+
+      - name: Create or update draft release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          if gh release view "$TAG" --json isDraft --jq .isDraft > release-draft.txt 2>/dev/null; then
+            if [[ "$(cat release-draft.txt)" != "true" ]]; then
+              echo "release $TAG is already published; refusing to replace its assets" >&2
+              exit 1
+            fi
+            gh release upload "$TAG" release-assets/* --clobber
+          else
+            gh release create "$TAG" release-assets/* \
+              --draft \
+              --generate-notes \
+              --title "Cadence $TAG" \
+              --verify-tag
+          fi

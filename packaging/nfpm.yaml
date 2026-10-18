@@ -1,0 +1,67 @@
+name: cadence
+arch: ${ARCH}
+platform: linux
+version: ${VERSION}
+release: 1
+maintainer: CSC <rarestcsc@qq.com>
+description: Native QQ Music desktop client built with Rust and GPUI
+vendor: Cadence
+homepage: https://github.com/RarestCSC/Cadence
+license: LicenseRef-Unknown
+section: sound
+priority: optional
+overrides:
+  deb:
+    depends:
+      - libc6 (>= ${GLIBC_VERSION})
+      - libasound2
+      - libfontconfig1
+      - libgcc-s1
+      - libglib2.0-0
+      - libwayland-client0
+      - libwayland-egl1
+      - libegl1
+      - libxcb1
+      - libxkbcommon0
+      - libxkbcommon-x11-0
+      - libvulkan1
+  rpm:
+    depends:
+      - glibc >= ${GLIBC_VERSION}
+      - alsa-lib
+      - fontconfig
+      - libgcc
+      - glib2
+      - libwayland-client
+      - libwayland-egl
+      - libglvnd-egl
+      - libxcb
+      - libxkbcommon
+      - libxkbcommon-x11
+      - vulkan-loader
+  archlinux:
+    depends:
+      - alsa-lib
+      - fontconfig
+      - gcc-libs
+      - glibc >= ${GLIBC_VERSION}
+      - libxcb
+      - libxkbcommon
+      - libxkbcommon-x11
+      - vulkan-icd-loader
+      - wayland
+contents:
+  - src: ${BINARY_DIR}/cadence
+    dst: /usr/bin/cadence
+    file_info:
+      mode: 0755
+  - src: packaging/linux/cadence.desktop
+    dst: /usr/share/applications/cadence.desktop
+  - src: packaging/linux/cadence.svg
+    dst: /usr/share/icons/hicolor/scalable/apps/cadence.svg
+  - src: ${BINARY_DIR}/README.md
+    dst: /usr/share/doc/cadence/README.md
+  - src: ${BINARY_DIR}/THIRD_PARTY_NOTICES.md
+    dst: /usr/share/doc/cadence/THIRD_PARTY_NOTICES.md
+  - src: ${BINARY_DIR}/license-unknown.txt
+    dst: /usr/share/licenses/cadence/license-unknown.txt

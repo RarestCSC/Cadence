@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=Cadence
+Comment=Fast native QQ Music desktop client
+Exec=cadence
+Icon=cadence
+Terminal=false
+Categories=AudioVideo;Audio;Player;
+Keywords=Music;Audio;Player;QQ Music;
+StartupNotify=true
+StartupWMClass=cadence

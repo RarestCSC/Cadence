@@ -1,0 +1,123 @@
+[workspace]
+members = ["crates/cadence", "crates/cadence-api", "crates/cadence-decrypt"]
+default-members = ["crates/cadence"]
+resolver = "2"
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+publish = false
+repository = "https://github.com/RarestCSC/Cadence"
+
+[workspace.dependencies]
+anyhow = "1.0"
+arc-swap = "1.7"
+async-tungstenite = { version = "0.29", default-features = false, features = [
+    "tokio-runtime",
+    "tokio-rustls-native-certs",
+] }
+base64 = "0.22"
+bytes = "1"
+directories = "6.0"
+flate2 = "1"
+futures-util = "0.3"
+gpui = { package = "gpui-pre", version = "=0.3.9" }
+gpui-base = "=0.7.3"
+gpui-component = "=0.7.3"
+gpui-platform = { package = "gpui-pre-platform", version = "=0.3.9", features = [
+    "font-kit",
+    "runtime_shaders",
+    "wayland",
+    "x11",
+] }
+ashpd = { version = "0.13.13", default-features = false, features = ["inhibit"] }
+hashbrown = { version = "0.17", features = ["serde"] }
+hex = "0.4"
+image = { version = "0.25", default-features = false, features = ["jpeg", "png"] }
+keyring = "4.1.6"
+ksni = { version = "0.3.6", features = ["blocking"] }
+lru = "0.18.5"
+cadence-api = { path = "crates/cadence-api" }
+cadence-decrypt = { path = "crates/cadence-decrypt" }
+mpris-server = { version = "0.10.0", default-features = false, features = ["tokio"] }
+palette = { version = "0.7.6", default-features = false, features = ["std"] }
+qrcode = { version = "0.14", default-features = false, features = ["image"] }
+quick-xml = "0.41"
+rand = "0.10"
+reqwest = { version = "0.13", default-features = false, features = [
+    "brotli",
+    "form",
+    "gzip",
+    "json",
+    "query",
+    "rustls-no-provider",
+    "stream",
+    "zstd",
+] }
+resvg = "0.46"
+rodio = "0.22.2"
+rqrr = "0.11"
+rumqttc = { version = "0.25.1", default-features = false }
+rustls = { version = "0.23.43", default-features = false, features = [
+    "ring",
+    "std",
+    "tls12",
+] }
+serde = { version = "1.0", features = ["derive", "rc"] }
+serde_json = "1.0"
+sha1 = "0.10"
+stream-download = { version = "0.24.3", default-features = false }
+thiserror = "2"
+tokio = { version = "1.47", features = ["full"] }
+tokio-util = { version = "0.7", features = ["io", "rt"] }
+tray-icon = { version = "0.24.2", default-features = false }
+uuid = { version = "1.18", features = ["v4"] }
+wana_kana = { version = "5.0", default-features = false }
+xxhash-rust = { version = "0.8", features = ["xxh3"] }
+zbus_systemd = { version = "0.26100.0", default-features = false, features = ["login1", "zbus-async-tokio"] }
+
+# Keep component and application GPUI types on the same patched snapshot.
+[patch.crates-io]
+gpui-pre-collections = { git = "https://github.com/amtoaer/zed", rev = "a417dfbfbb89b5a90e69b22ee593456301c37fe9" }
+gpui-pre = { git = "https://github.com/amtoaer/zed", rev = "a417dfbfbb89b5a90e69b22ee593456301c37fe9" }
+gpui-pre-apple = { git = "https://github.com/amtoaer/zed", rev = "a417dfbfbb89b5a90e69b22ee593456301c37fe9" }
+gpui-pre-linux = { git = "https://github.com/amtoaer/zed", rev = "a417dfbfbb89b5a90e69b22ee593456301c37fe9" }
+gpui-pre-macos = { git = "https://github.com/amtoaer/zed", rev = "a417dfbfbb89b5a90e69b22ee593456301c37fe9" }
+gpui-pre-macros = { git = "https://github.com/amtoaer/zed", rev = "a417dfbfbb89b5a90e69b22ee593456301c37fe9" }
+gpui-pre-platform = { git = "https://github.com/amtoaer/zed", rev = "a417dfbfbb89b5a90e69b22ee593456301c37fe9" }
+gpui-pre-shared-string = { git = "https://github.com/amtoaer/zed", rev = "a417dfbfbb89b5a90e69b22ee593456301c37fe9" }
+gpui-pre-util = { git = "https://github.com/amtoaer/zed", rev = "a417dfbfbb89b5a90e69b22ee593456301c37fe9" }
+gpui-pre-web = { git = "https://github.com/amtoaer/zed", rev = "a417dfbfbb89b5a90e69b22ee593456301c37fe9" }
+gpui-pre-wgpu = { git = "https://github.com/amtoaer/zed", rev = "a417dfbfbb89b5a90e69b22ee593456301c37fe9" }
+gpui-pre-windows = { git = "https://github.com/amtoaer/zed", rev = "a417dfbfbb89b5a90e69b22ee593456301c37fe9" }
+gpui-pre-http-client = { git = "https://github.com/amtoaer/zed", rev = "a417dfbfbb89b5a90e69b22ee593456301c37fe9" }
+gpui-pre-refineable = { git = "https://github.com/amtoaer/zed", rev = "a417dfbfbb89b5a90e69b22ee593456301c37fe9" }
+gpui-pre-derive-refineable = { git = "https://github.com/amtoaer/zed", rev = "a417dfbfbb89b5a90e69b22ee593456301c37fe9" }
+gpui-pre-scheduler = { git = "https://github.com/amtoaer/zed", rev = "a417dfbfbb89b5a90e69b22ee593456301c37fe9" }
+gpui-pre-sum-tree = { git = "https://github.com/amtoaer/zed", rev = "a417dfbfbb89b5a90e69b22ee593456301c37fe9" }
+gpui-pre-ztracing = { git = "https://github.com/amtoaer/zed", rev = "a417dfbfbb89b5a90e69b22ee593456301c37fe9" }
+gpui-pre-ztracing-macro = { git = "https://github.com/amtoaer/zed", rev = "a417dfbfbb89b5a90e69b22ee593456301c37fe9" }
+
+[workspace.metadata.release]
+release = false
+tag-message = ""
+tag-prefix = ""
+pre-release-commit-message = "chore: 发布 Cadence {{version}}"
+publish = false
+
+[profile.dev]
+opt-level = 1
+
+[profile.dev.package."gpui-pre"]
+opt-level = 2
+
+[profile.dev.package."gpui-component"]
+opt-level = 2
+
+[profile.dev.package."gpui-base"]
+opt-level = 2
+
+[profile.release]
+strip = true
+lto = "thin"
+codegen-units = 1

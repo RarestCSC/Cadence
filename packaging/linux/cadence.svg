@@ -1,0 +1,49 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title desc">
+  <title id="title">Cadence</title>
+  <desc id="desc">A blue music note inside an open ring on a soft rounded tile.</desc>
+
+  <defs>
+    <linearGradient id="tile" gradientUnits="userSpaceOnUse" x1="256" y1="8" x2="256" y2="504">
+      <stop offset="0" stop-color="#fbfcff"/>
+      <stop offset="1" stop-color="#e6eafa"/>
+    </linearGradient>
+    <linearGradient id="arc-bottom" gradientUnits="userSpaceOnUse" x1="247.7" y1="397.4" x2="354.2" y2="342">
+      <stop offset="0" stop-color="#4d43e4"/>
+      <stop offset="1" stop-color="#3c61f0"/>
+    </linearGradient>
+    <linearGradient id="arc-left" gradientUnits="userSpaceOnUse" x1="135.1" y1="332.4" x2="247.7" y2="397.4">
+      <stop offset="0" stop-color="#244ac7"/>
+      <stop offset="1" stop-color="#4d43e4"/>
+    </linearGradient>
+    <linearGradient id="arc-top" gradientUnits="userSpaceOnUse" x1="236.4" y1="137.9" x2="135.1" y2="332.4">
+      <stop offset="0" stop-color="#2f63e6"/>
+      <stop offset="1" stop-color="#244ac7"/>
+    </linearGradient>
+    <linearGradient id="stem" gradientUnits="userSpaceOnUse" x1="310" y1="98" x2="310" y2="266">
+      <stop offset="0" stop-color="#0e9bf2"/>
+      <stop offset="1" stop-color="#2456ea"/>
+    </linearGradient>
+    <linearGradient id="flag" gradientUnits="userSpaceOnUse" x1="310" y1="98" x2="414" y2="174">
+      <stop offset="0" stop-color="#0aa7f6"/>
+      <stop offset="1" stop-color="#17c0f6"/>
+    </linearGradient>
+    <linearGradient id="notehead" gradientUnits="userSpaceOnUse" x1="265" y1="215.5" x2="265" y2="339.1">
+      <stop offset="0" stop-color="#2f6bee"/>
+      <stop offset="1" stop-color="#4a38ec"/>
+    </linearGradient>
+  </defs>
+
+  <rect x="8" y="8" width="496" height="496" rx="118" fill="url(#tile)"/>
+
+  <g fill="none" stroke-width="40.2" stroke-linecap="butt">
+    <path d="M355.2 340.5A130 130 0 0 1 245.9 397.4" stroke="url(#arc-bottom)"/>
+    <path d="M249.5 397.4A130 130 0 0 1 134.1 330.6" stroke="url(#arc-left)"/>
+    <path d="M136 333.9A130 130 0 0 1 238.2 137.7" stroke="url(#arc-top)"/>
+  </g>
+  <circle cx="354.2" cy="342" r="20.1" fill="#3c61f0"/>
+  <circle cx="236.4" cy="137.9" r="20.1" fill="#2f63e6"/>
+
+  <path d="M310 116V266" fill="none" stroke="url(#stem)" stroke-width="35.8" stroke-linecap="round"/>
+  <path d="M310 98C360 92 407 125 414 174" fill="none" stroke="url(#flag)" stroke-width="35.8" stroke-linecap="round"/>
+  <circle cx="265" cy="277.3" r="61.8" fill="url(#notehead)"/>
+</svg>
