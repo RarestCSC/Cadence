@@ -178,6 +178,8 @@ MPRIS 在音源加载期间沿用 `Playing` 状态；它与 `PlaybackState::is_a
 | `lyrics_loading::ensure_track_lyrics` 的异常收尾 | 磁盘旧内容已采用后，若后台任务异常结束而未发送 Network，收尾可能留下该歌曲的 loading 标记。该标记仅在内存中，重启后清除；需要受控异常复现，再决定恢复行为。 |
 | `AudioCache::prepare_for_seek` | 仅在测试中使用，覆盖跳转 Range 请求且不发送 HEAD 的路径；删除前需要替代这项覆盖，并重新判断 `validate_remote` 的用途。 |
 | `app::account::tests::test_qq_login_switching` | 全量测试中约 1/3 概率因 Cadence worker 线程唤醒 GPUI 测试调度器而失败；单独运行稳定通过，上游 1.7.0 也可复现。需要消除登录任务与测试调度器之间的跨线程唤醒竞态，不能简单忽略测试。 |
+| 毛玻璃背景 | GNOME + X11 没有窗口后景模糊，毛玻璃由自绘模糊背景加半透明面板实现；`WindowBackgroundAppearance::Blurred` 目前只在 Wayland + KDE 分支生效，换到该组合前不要假设可用。 |
+| 背景图处理 | `background.rs` 的 `BLUR_SIGMA` 固定，图片每次启动或换图都会重新解码、缩放和模糊，没有落盘缓存；高分辨率图片首次加载会有一次可感知停顿，后续启动读系统页缓存。 |
 
 ## 验证
 

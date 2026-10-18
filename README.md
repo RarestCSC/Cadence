@@ -33,6 +33,7 @@
 
 ## 文档
 
+- [交接文档](HANDOFF.md)
 - [代码结构与维护约束](docs/architecture.md)
 - [GPUI 快照说明](vendor/README.md)
 - [第三方许可](THIRD_PARTY_NOTICES.md)
