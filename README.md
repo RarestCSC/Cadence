@@ -10,17 +10,15 @@
 
 ## 功能
 
-1. 扫码登录，加载“我喜欢”和用户歌单，双击播放；
+1. 扫码登录，加载“我喜欢”和用户歌单，双击或点击行号播放；
 2. 自由选择音质，缓存播过的曲目防止多次请求；
 3. 支持“专属雷达”、“猜你喜欢”等智能歌单；
 4. 支持搜索，查看单曲、歌单、专辑、歌手；
 5. 支持歌词展示，内置 Ayu 亮色/暗色主题并可调整界面字体；
-6. 支持自定义毛玻璃背景图片，可调模糊半径与面板不透明度；
+6. 支持自定义毛玻璃背景图片，可调模糊半径与面板不透明度，歌单、搜索和歌手页共用同一套玻璃背景；
 7. 支持托盘，关闭窗口后仍在后台播放；
 8. 记住上次窗口尺寸，启动时沿用；
 9. 不依赖 WebView，运行流畅、占用较低。
-
-界面截图待补充。
 
 ## 项目结构
 
@@ -34,7 +32,6 @@
 
 ## 文档
 
-- [交接文档](HANDOFF.md)
 - [代码结构与维护约束](docs/architecture.md)
 - [GPUI 快照说明](vendor/README.md)
 - [第三方许可](THIRD_PARTY_NOTICES.md)
@@ -68,6 +65,15 @@ packaging/build-deb.sh 0.1.0 amd64 dist
 
 `packaging/build-packages.sh` 仍保留 nfpm 的 deb/rpm/Arch 全量流程。
 
+## 安装
+
+```bash
+packaging/build-deb.sh 0.1.0 amd64 dist
+sudo apt install ./dist/cadence-v0.1.0-linux-amd64.deb
+```
+
+也可以直接运行 `./target/release/cadence`。安装后可从应用菜单或终端运行 `cadence`。
+
 ## 平台支持
 
 当前只提供 Linux 构建。程序使用跨平台的语言和 UI 框架，Windows / macOS 可以自行编译，但 GPUI 在这两个平台上缺少 Damage Tracking，歌词页在高强度重绘时性能不如 Linux。
@@ -94,4 +100,4 @@ packaging/build-deb.sh 0.1.0 amd64 dist
 
 Cadence 是非官方客户端，与腾讯及 QQ 音乐无隶属或认可关系。请遵守当地法律、QQ 音乐服务条款及内容授权要求。
 
-本项目是私人修改版本，不公开发布。原始代码来自 Lyrune；截至 2026-08-15，上游代码未声明开源许可，相关版权仍归其作者所有。GPUI 以 Apache-2.0 快照形式放在 `vendor/gpui`，第三方组件的完整许可信息见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。
+本项目是个人维护的非官方修改版本。原始代码来自 Lyrune；截至 2026-08-15，上游代码未声明开源许可，相关版权仍归其作者所有，再分发前请先确认上游授权。GPUI 以 Apache-2.0 快照形式放在 `vendor/gpui`，第三方组件的完整许可信息见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。

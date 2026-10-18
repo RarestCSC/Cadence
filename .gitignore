@@ -1,5 +1,6 @@
 /target
 /dist
+/HANDOFF.md
 *.log
 *.deb
 .env
