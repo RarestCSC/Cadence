@@ -67,8 +67,9 @@ packaging/build-deb.sh 0.1.0 amd64 dist
 
 ## 安装
 
+构建 deb 后安装：
+
 ```bash
-packaging/build-deb.sh 0.1.0 amd64 dist
 sudo apt install ./dist/cadence-v0.1.0-linux-amd64.deb
 ```
 
