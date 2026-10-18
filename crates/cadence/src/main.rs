@@ -242,6 +242,8 @@ fn main() {
                     .window
                     .is_some_and(|window| window.window_id() == window_id);
                 if is_main_window {
+                    let view = main_window_for_close.borrow().view.clone();
+                    view.read(cx).save_preferences(cx);
                     main_window_for_close.borrow_mut().window = None;
                 }
                 if !tray_available && cx.windows().is_empty() {

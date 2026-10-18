@@ -420,6 +420,10 @@ impl CadenceView {
         self.preferences.read(cx).settings.window_decoration
     }
 
+    pub(crate) fn save_preferences(&self, cx: &App) {
+        self.preferences.read(cx).save();
+    }
+
     fn dismiss_popovers(&mut self, cx: &mut Context<Self>) {
         if self.account_menu_open || self.quality_menu_open {
             self.account_menu_open = false;

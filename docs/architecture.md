@@ -44,7 +44,9 @@
 
 `WindowDecoration` 默认 CSD。CSD 下 `render_window_controls` 在左上角绘制三个 16px 自绘圆点（关闭/最小化/最大化），悬停时显示符号；控件使用 deferred 优先级 20，命中时阻止事件传到下方侧栏 logo 拖动区。侧栏 logo 使用 `candece-brand.svg` 并在 CSD 下右移为控件留出空间，拖动区仍覆盖整行，双击时切换最大化。
 
-主窗口内容四角使用 `WINDOW_CORNER_RADIUS=12`：背景层、主视图、侧栏左上和播放栏底部各自圆角，窗口背景保持透明，因此四角能看到桌面。GPUI 的 CSD 阴影仍按矩形绘制，X11 下阴影外缘会保留方角。导航栏头像左侧提供设置按钮，与账号菜单中的“设置”共用 `NavigationAction::Settings`。
+主窗口内容四角使用 `WINDOW_CORNER_RADIUS=12`：背景层、主视图、侧栏左上和播放栏底部各自圆角，窗口背景保持透明，因此四角能看到桌面。GPUI 的 CSD 阴影仍按矩形绘制，X11 下阴影外缘会保留方角。导航栏头像左侧提供设置按钮，发出 `NavigationAction::Settings`。
+
+窗口尺寸由 `observe_window_bounds` 写入 `AppSettings::window_size`（外部窗口尺寸）；关闭窗口时根视图保存偏好，重新打开或下次启动时 `initial_window_size` 按上次尺寸创建窗口。退出应用时 `shutdown` 仍会再保存一次，覆盖关窗后未退出的情况。
 
 ### GPUI 依赖
 
