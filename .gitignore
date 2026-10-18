@@ -1,6 +1,8 @@
 /target
 /dist
 *.log
+*.deb
 .env
 .env.*
 !.env.example
+.agents/
