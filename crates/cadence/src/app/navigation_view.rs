@@ -129,26 +129,6 @@ impl NavigationView {
                             .occlude()
                             .child(div().truncate().font_medium().child(name))
                             .child(
-                                Button::new("open-settings")
-                                    .ghost()
-                                    .w_full()
-                                    .h(px(44.))
-                                    .child(
-                                        h_flex()
-                                            .w_full()
-                                            .gap_2()
-                                            .child(media_icon_hsla(
-                                                MediaIcon::Settings,
-                                                theme.secondary_foreground,
-                                                px(18.),
-                                            ))
-                                            .child("设置"),
-                                    )
-                                    .on_click(cx.listener(|_, _, _, cx| {
-                                        cx.emit(NavigationAction::Settings)
-                                    })),
-                            )
-                            .child(
                                 div()
                                     .mt_1()
                                     .border_t_1()
