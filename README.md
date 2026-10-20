@@ -77,14 +77,14 @@ sudo apt install ./dist/cadence-v0.1.0-linux-amd64.deb
 
 ## 发布
 
-推送 `vX.Y.Z` 标签会触发 GitHub Actions 构建 Linux amd64/arm64 包，并创建 draft release。标签必须与 `Cargo.toml` 的 `workspace.package.version` 一致。
+推送 `vX.Y.Z` 标签会触发 GitHub Actions 构建 Linux amd64 deb，并创建 draft release。标签必须与 `Cargo.toml` 的 `workspace.package.version` 一致。
 
 ```bash
 git tag v0.2.0
 git push origin v0.2.0
 ```
 
-CI 会生成 `.tar.gz`、`.deb`、`.rpm`、Arch 包、AppImage 和 `SHA256SUMS`，检查无误后在 GitHub Releases 页面手动发布。
+也可以在 Actions 页面手动运行 `Release` 工作流：它按 `Cargo.toml` 版本构建 deb 并上传 artifact，不创建 release。CI 产物为 `.deb` 和 `SHA256SUMS`，检查无误后在 GitHub Releases 页面手动发布。
 
 ## 平台支持
 

@@ -1506,10 +1506,10 @@ impl LyricsView {
                         images.child(
                             div()
                                 .absolute()
-                                .top(-backdrop_padding)
-                                .right(-backdrop_padding)
+                                .top_0()
+                                .right_0()
                                 .bottom(-backdrop_padding)
-                                .left(-backdrop_padding)
+                                .left_0()
                                 .opacity(previous_backdrop_opacity)
                                 .child(
                                     img(blurred_image_source(
@@ -1521,6 +1521,8 @@ impl LyricsView {
                                         self.input.background_contrast,
                                     ))
                                     .size_full()
+                                    .rounded_tl(px(super::WINDOW_CORNER_RADIUS))
+                                    .rounded_tr(px(super::WINDOW_CORNER_RADIUS))
                                     .object_fit(ObjectFit::Cover),
                                 ),
                         )
@@ -1528,10 +1530,10 @@ impl LyricsView {
                     .child(
                         div()
                             .absolute()
-                            .top(-backdrop_padding)
-                            .right(-backdrop_padding)
+                            .top_0()
+                            .right_0()
                             .bottom(-backdrop_padding)
-                            .left(-backdrop_padding)
+                            .left_0()
                             .opacity(current_backdrop_opacity)
                             .child(
                                 img(blurred_image_source(
@@ -1543,6 +1545,8 @@ impl LyricsView {
                                     self.input.background_contrast,
                                 ))
                                 .size_full()
+                                .rounded_tl(px(super::WINDOW_CORNER_RADIUS))
+                                .rounded_tr(px(super::WINDOW_CORNER_RADIUS))
                                 .object_fit(ObjectFit::Cover),
                             ),
                     );

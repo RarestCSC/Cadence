@@ -44,7 +44,7 @@
 
 `WindowDecoration` 默认 CSD。CSD 下 `render_window_controls` 在左上角绘制三个 16px 自绘圆点（关闭/最小化/最大化），悬停时显示符号；控件使用 deferred 优先级 20，命中时阻止事件传到下方侧栏 logo 拖动区。侧栏 logo 使用 `candece-brand.svg` 并在 CSD 下右移为控件留出空间，拖动区仍覆盖整行，双击时切换最大化。
 
-主窗口内容四角使用 `WINDOW_CORNER_RADIUS=12`：背景层、主视图、侧栏左上和播放栏底部各自圆角，窗口背景保持透明，因此四角能看到桌面。GPUI 的 CSD 阴影仍按矩形绘制，X11 下阴影外缘会保留方角。导航栏头像左侧提供设置按钮，发出 `NavigationAction::Settings`。
+主窗口内容四角使用 `WINDOW_CORNER_RADIUS=12`：背景层、主视图、侧栏左上和播放栏底部各自圆角，窗口背景保持透明，因此四角能看到桌面。载入歌词页时封面背景图同样按顶部两角裁切。gpui-component 的 CSD 边框与阴影原本按矩形绘制，`vendor/gpui-component` 的 `window_border` 补丁把圆角半径改为 12px 并补齐底部两角，使外缘与内容一致。导航栏头像左侧提供设置按钮，发出 `NavigationAction::Settings`。
 
 窗口尺寸由 `observe_window_bounds` 写入 `AppSettings::window_size`（外部窗口尺寸）；关闭窗口时根视图保存偏好，重新打开或下次启动时 `initial_window_size` 按上次尺寸创建窗口。退出应用时 `shutdown` 仍会再保存一次，覆盖关窗后未退出的情况。
 
@@ -53,6 +53,8 @@
 `gpui-base` / `gpui-component` 固定为官方 0.7.3，底层使用 `gpui-pre 0.3.9`。相关 GPUI 源码以快照形式放在 [vendor/gpui](../vendor/gpui)，来自 `amtoaer/zed@a417dfbf`；根 `Cargo.toml` 通过 `[patch.crates-io]` 指向本地路径，避免应用与组件使用不同来源的实体、窗口和绘制类型。`vendor/gpui` 是独立 workspace，根工作区的 `exclude` 明确排除它，构建不再拉取 Zed 仓库。
 
 该快照从官方 `93d74566` 导出，包含 Cadence 需要的局部重绘、动态非活动帧率、字形变换和可变字体补丁；Wayland 帧循环补丁已被上游包含。补丁及生成方式见 [LYRUNE-GPUI.md](../vendor/gpui/LYRUNE-GPUI.md)。升级时按 [vendor/README.md](../vendor/README.md) 重新获取快照，并检查 `[patch.crates-io]` 的路径列表。
+
+`gpui-component` 另有一份 `vendor/gpui-component` 快照，只修改 `window_border.rs` 的窗口圆角；来源与更新方式见该目录的 `README-CADENCE.md`。两份快照的版本必须与 `gpui-component` / `gpui-base` 的依赖版本保持一致。
 
 ### 工作区与协议库
 
@@ -64,7 +66,7 @@
 
 本地只打 deb 时使用 `packaging/build-deb.sh`：它调用 `cargo build --release`，按 `packaging/nfpm.yaml` 的路径和依赖用 `dpkg-deb` 组装，不依赖 nfpm。`packaging/build-packages.sh` 保留 nfpm 的 deb/rpm/Arch 全量流程。
 
-GitHub Actions 的 `release.yml` 只在推送 `vX.Y.Z` 标签时运行，先校验标签与 `Cargo.toml` 版本一致，再在 Linux amd64/arm64 runner 上构建并创建 draft release。CI 使用 `build-packages.sh`，因此产物包含 deb、rpm、Arch 包、tar.gz 和 AppImage；本地 deb 脚本不参与 CI。
+GitHub Actions 的 `release.yml` 在推送 `vX.Y.Z` 标签时校验标签与 `Cargo.toml` 版本一致，用 `build-deb.sh` 构建 Linux amd64 deb 并创建 draft release；`workflow_dispatch` 手动触发时按 `Cargo.toml` 版本构建 deb，只上传 artifact、不创建 release。
 
 ### API 响应与领域边界
 
@@ -196,8 +198,8 @@ MPRIS 在音源加载期间沿用 `Playing` 状态；它与 `PlaybackState::is_a
 | `app::account::tests::test_qq_login_switching` | 全量测试中约 1/3 概率因 Cadence worker 线程唤醒 GPUI 测试调度器而失败；单独运行稳定通过，上游 1.7.0 也可复现。需要消除登录任务与测试调度器之间的跨线程唤醒竞态，不能简单忽略测试。 |
 | 毛玻璃背景 | GNOME + X11 没有窗口后景模糊，毛玻璃由自绘模糊背景加半透明面板实现；`WindowBackgroundAppearance::Blurred` 目前只在 Wayland + KDE 分支生效，换到该组合前不要假设可用。 |
 | 背景图处理 | 模糊半径由 `background_blur` 控制，但图片每次启动、换图或改模糊半径都会重新解码、缩放和模糊，没有落盘缓存；启动时同步加载首张背景会推迟窗口出现，高分辨率图片首次加载会有一次可感知停顿。 |
-| 窗口圆角 | 圆角由内容层各自绘制，GPUI 的 CSD 阴影仍是矩形，X11 下阴影外缘能看到方角；歌词页的全屏封面背景也未逐角裁切。 |
-| QQ 快捷登录 | `QqQuickLogin::discover` 探测本机 QQ 的 4301–4309 端口；当前 QQ 3.2.32 的 4301 可建立 TCP 连接但不完成 TLS 握手，检测失败会回退扫码并提示。需要 QQ 客户端协议变化的新证据后再改探测方式。 |
+| 窗口圆角 | 窗口边框、阴影和内容现在使用同一 12px 圆角；最大化或平铺时仍按非平铺窗口绘制圆角与阴影，外观由窗口管理器处理。 |
+| QQ 快捷登录 | 2026-10-20 在 QQ 3.2.32 上验证：QQ 已登录时 4301 端口完成 TLS 握手并返回账号列表；未登录时端口可能只监听而不完成握手。失败提示应继续引导用户先启动并登录 QQ，不要改探测端口。 |
 
 ## 验证
 

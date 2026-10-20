@@ -43,3 +43,7 @@ rsync -a --delete --exclude .git --exclude target --exclude Cargo.lock \
 
 After updating, check whether the workspace members changed and adjust the
 paths under `[patch.crates-io]` in the root `Cargo.toml` if necessary.
+
+`gpui-component` itself is a separate vendored snapshot under
+[`gpui-component`](gpui-component); see its `README-CADENCE.md` for the local
+window-border patch.

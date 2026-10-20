@@ -1,5 +1,5 @@
 [workspace]
-exclude = ["vendor/gpui"]
+exclude = ["vendor/gpui", "vendor/gpui-component"]
 members = ["crates/cadence", "crates/cadence-api", "crates/cadence-decrypt"]
 default-members = ["crates/cadence"]
 resolver = "2"
@@ -81,6 +81,7 @@ zbus_systemd = { version = "0.26100.0", default-features = false, features = ["l
 # Vendored GPUI snapshot (see vendor/README.md).
 # Keep component and application GPUI types on the same patched snapshot.
 [patch.crates-io]
+gpui-component = { path = "vendor/gpui-component" }
 gpui-pre-collections = { path = "vendor/gpui/crates/collections" }
 gpui-pre = { path = "vendor/gpui/crates/gpui" }
 gpui-pre-apple = { path = "vendor/gpui/crates/gpui_apple" }
