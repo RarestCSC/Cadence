@@ -75,6 +75,17 @@ sudo apt install ./dist/cadence-v0.1.0-linux-amd64.deb
 
 也可以直接运行 `./target/release/cadence`。安装后可从应用菜单或终端运行 `cadence`。
 
+## 发布
+
+推送 `vX.Y.Z` 标签会触发 GitHub Actions 构建 Linux amd64/arm64 包，并创建 draft release。标签必须与 `Cargo.toml` 的 `workspace.package.version` 一致。
+
+```bash
+git tag v0.2.0
+git push origin v0.2.0
+```
+
+CI 会生成 `.tar.gz`、`.deb`、`.rpm`、Arch 包、AppImage 和 `SHA256SUMS`，检查无误后在 GitHub Releases 页面手动发布。
+
 ## 平台支持
 
 当前只提供 Linux 构建。程序使用跨平台的语言和 UI 框架，Windows / macOS 可以自行编译，但 GPUI 在这两个平台上缺少 Damage Tracking，歌词页在高强度重绘时性能不如 Linux。

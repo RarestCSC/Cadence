@@ -60,6 +60,12 @@
 
 `cadence-api` 仅供 Cadence 内部使用，根入口选择性导出应用需要的能力，各领域模块直接实现 `ProtocolClient` 的方法。登录、播放和 CDN 使用的标识各有协议含义，不能因外形相似而合并；`QqCredential` 和 `LyricResult` 是持久化兼容面。协议库入口与来源说明见 [API README](../crates/cadence-api/README.md)。
 
+### 打包与发布
+
+本地只打 deb 时使用 `packaging/build-deb.sh`：它调用 `cargo build --release`，按 `packaging/nfpm.yaml` 的路径和依赖用 `dpkg-deb` 组装，不依赖 nfpm。`packaging/build-packages.sh` 保留 nfpm 的 deb/rpm/Arch 全量流程。
+
+GitHub Actions 的 `release.yml` 只在推送 `vX.Y.Z` 标签时运行，先校验标签与 `Cargo.toml` 版本一致，再在 Linux amd64/arm64 runner 上构建并创建 draft release。CI 使用 `build-packages.sh`，因此产物包含 deb、rpm、Arch 包、tar.gz 和 AppImage；本地 deb 脚本不参与 CI。
+
 ### API 响应与领域边界
 
 | 模块 | 当前职责与保持的约束 |
