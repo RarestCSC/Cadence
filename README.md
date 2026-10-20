@@ -60,7 +60,7 @@ cargo clippy --locked -p cadence --all-targets
 打包 deb（使用系统自带的 `dpkg-deb`，不需要 nfpm）：
 
 ```bash
-packaging/build-deb.sh 0.1.0 amd64 dist
+packaging/build-deb.sh 0.2.0 amd64 dist
 ```
 
 `packaging/build-packages.sh` 仍保留 nfpm 的 deb/rpm/Arch 全量流程。
@@ -70,7 +70,7 @@ packaging/build-deb.sh 0.1.0 amd64 dist
 构建 deb 后安装：
 
 ```bash
-sudo apt install ./dist/cadence-v0.1.0-linux-amd64.deb
+sudo apt install ./dist/cadence-v0.2.0-linux-amd64.deb
 ```
 
 也可以直接运行 `./target/release/cadence`。安装后可从应用菜单或终端运行 `cadence`。

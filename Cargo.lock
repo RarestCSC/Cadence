@@ -882,7 +882,7 @@ checksum = "fc652a48c352aef3ea3aed32080501cf3ef6ed5da78602a020c991775b0aff04"
 
 [[package]]
 name = "cadence"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "anyhow",
  "ashpd",
@@ -924,7 +924,7 @@ dependencies = [
 
 [[package]]
 name = "cadence-api"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "anyhow",
  "arc-swap",
@@ -948,7 +948,7 @@ dependencies = [
 
 [[package]]
 name = "cadence-decrypt"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "base64",
 ]

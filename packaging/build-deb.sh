@@ -2,7 +2,7 @@
 # 仅构建 .deb：使用系统 dpkg-deb，不依赖 nfpm。
 set -euo pipefail
 
-version="${1:-0.1.0}"
+version="${1:-0.2.0}"
 arch="${2:-amd64}"
 dist_dir="$(realpath -m "${3:-dist}")"
 case "$arch" in
