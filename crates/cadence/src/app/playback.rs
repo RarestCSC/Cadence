@@ -1,7 +1,7 @@
 //! 音源解析、解码准备和播放控制；队列组成在 queue，外部状态同步在 playback_sync。
 
 use std::sync::Arc;
-use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
+use std::time::{Duration, Instant};
 
 use anyhow::Context as _;
 use cadence_api::{
@@ -14,7 +14,9 @@ use tokio::task::JoinHandle;
 use crate::cache::{AudioCache, PreparedStream};
 use crate::player::{AudioPlayer, PreparedPlayback};
 use crate::runtime::RUNTIME;
-use crate::settings::{CdnCacheStore, PersistedPlayback, PersistedQueueContinuation};
+use crate::settings::{
+    AppSettings, CdnCacheStore, PersistedPlayback, PersistedQueueContinuation, RepeatMode,
+};
 
 use super::account::Account;
 use super::lyrics_loading::LyricsCache;
@@ -23,7 +25,7 @@ use super::navigation::SharedPlaylistResource;
 use super::playback_sync::{duration_micros, mpris_track_id};
 use super::playlists::PlaylistPageKey;
 use super::preferences::Preferences;
-use super::queue::{PlaybackQueue, RepeatMode};
+use super::queue::PlaybackQueue;
 use crate::singleflight::SingleFlight;
 #[cfg(target_os = "linux")]
 use crate::{inhibit::InhibitHandle, mpris::MprisHandle};
@@ -201,11 +203,7 @@ pub(super) struct PlaybackState {
 }
 
 impl PlaybackState {
-    pub(super) fn new(
-        audio: Option<Arc<AudioPlayer>>,
-        quality: Quality,
-        pending_restore: Option<PersistedPlayback>,
-    ) -> Self {
+    pub(super) fn new(audio: Option<Arc<AudioPlayer>>, settings: &AppSettings) -> Self {
         Self {
             audio,
             queue: None,
@@ -216,12 +214,12 @@ impl PlaybackState {
             load: PlaybackLoad::default(),
             started: false,
             location: None,
-            active_quality: quality,
+            active_quality: settings.playback_quality,
             available_qualities: Vec::new(),
             position: Duration::ZERO,
-            shuffle: false,
-            repeat_mode: RepeatMode::Off,
-            pending_restore,
+            shuffle: settings.shuffle,
+            repeat_mode: settings.repeat_mode,
+            pending_restore: settings.current_playback.clone(),
             last_persisted_at: Instant::now(),
         }
     }
@@ -235,12 +233,69 @@ impl PlaybackState {
         self.queue_generation
     }
 
+    pub(super) fn restore_queue(
+        &mut self,
+        restore: PersistedPlayback,
+    ) -> Option<(usize, Duration)> {
+        let index = restore
+            .queue_tracks
+            .iter()
+            .position(|track| track.mid == restore.track_mid)?;
+        let resume_at = restore.resume_position(restore.queue_tracks[index].duration_seconds);
+        let shuffle_order = restore.queue_shuffle_order.filter(|order| {
+            let mut sorted = order.clone();
+            sorted.sort_unstable();
+            sorted.into_iter().eq(0..restore.queue_tracks.len())
+        });
+        let mut queue = PlaybackQueue {
+            playlist_id: restore.playlist_id,
+            tracks: restore.queue_tracks,
+            modified: restore.queue_modified,
+            continuation: restore.queue_continuation,
+            shuffle_order,
+        };
+        queue.set_shuffle(self.shuffle, Some(index));
+        self.pending_restore = None;
+        self.replace_queue(queue);
+        Some((index, resume_at))
+    }
+
     pub(super) fn track(&self) -> Option<&Track> {
         self.queue
             .as_ref()?
             .tracks
             .get(self.current_track?)
             .map(Arc::as_ref)
+    }
+
+    pub(super) fn set_shuffle(&mut self, enabled: bool) {
+        self.shuffle = enabled;
+        if let Some(queue) = &mut self.queue {
+            queue.set_shuffle(enabled, self.current_track);
+        }
+    }
+
+    pub(super) fn next_track(&self, automatic: bool) -> Option<usize> {
+        let index = self.current_track?;
+        let queue = self.queue.as_ref()?;
+        queue.tracks.get(index)?;
+        if automatic && self.repeat_mode == RepeatMode::One {
+            return Some(index);
+        }
+        let can_extend = queue
+            .continuation
+            .is_some_and(PersistedQueueContinuation::can_load_more);
+        queue.adjacent_index(index, 1, self.repeat_mode == RepeatMode::All && !can_extend)
+    }
+
+    pub(super) fn previous_track(&self) -> Option<usize> {
+        let index = self.current_track?;
+        let queue = self.queue.as_ref()?;
+        queue.tracks.get(index)?;
+        if self.position >= Duration::from_secs(3) {
+            return Some(index);
+        }
+        queue.adjacent_index(index, -1, self.repeat_mode == RepeatMode::All)
     }
 
     pub(super) fn duration(&self) -> Option<Duration> {
@@ -275,6 +330,7 @@ impl PlaybackState {
             queue_tracks: queue.tracks.clone(),
             queue_modified: queue.modified,
             queue_continuation: queue.continuation,
+            queue_shuffle_order: queue.shuffle_order.clone(),
         })
     }
 }
@@ -497,6 +553,7 @@ impl Playback {
         });
         let generation = self.state.load.invalidate();
         self.state.current_track = Some(index);
+        self.state.set_shuffle(self.state.shuffle);
         self.state.load.track = Some(index);
         self.state.load.autoplay = autoplay;
         self.state.started = false;
@@ -760,40 +817,18 @@ impl Playback {
     }
 
     pub(super) fn play_previous(&mut self, cx: &mut Context<Self>) {
-        let Some(index) = self.state.current_track else {
+        let Some(previous) = self.state.previous_track() else {
             return;
         };
-        let queue_len = self
-            .state
-            .queue
-            .as_ref()
-            .map_or(0, |queue| queue.tracks.len());
         if self.state.position >= Duration::from_secs(3) {
             self.seek_to(Duration::ZERO, cx);
             return;
         }
-        let previous = if index > 0 {
-            Some(index - 1)
-        } else if self.state.repeat_mode == RepeatMode::All && queue_len > 0 {
-            Some(queue_len - 1)
-        } else {
-            None
-        };
-        if let Some(previous) = previous {
-            self.start_playback(previous, Duration::ZERO, None, true, cx);
-        }
+        self.start_playback(previous, Duration::ZERO, None, true, cx);
     }
 
     pub(super) fn play_next(&mut self, automatic: bool, cx: &mut Context<Self>) {
-        let Some(index) = self.state.current_track else {
-            return;
-        };
-        let len = self
-            .state
-            .queue
-            .as_ref()
-            .map_or(0, |queue| queue.tracks.len());
-        if len == 0 {
+        if self.state.current_track.is_none() {
             return;
         }
         let continuation = self
@@ -802,22 +837,16 @@ impl Playback {
             .as_ref()
             .and_then(|queue| queue.continuation);
         let can_extend = continuation.is_some_and(PersistedQueueContinuation::can_load_more);
-        let next = if automatic && self.state.repeat_mode == RepeatMode::One {
-            Some(index)
-        } else if continuation.is_none() && self.state.shuffle && len > 1 {
-            Some(self.random_track_index(index, len))
-        } else if index + 1 < len {
-            Some(index + 1)
-        } else if !can_extend && self.state.repeat_mode == RepeatMode::All {
-            Some(0)
-        } else {
-            None
-        };
-        if let Some(next) = next {
+        if let Some(next) = self.state.next_track(automatic) {
             self.start_playback(next, Duration::ZERO, None, true, cx);
             return;
         }
 
+        self.state.load.invalidate();
+        if let Some(audio) = &self.state.audio {
+            audio.stop();
+        }
+        self.state.load.clear();
         self.state.started = false;
         self.wake_playback_tick();
         if can_extend {
@@ -832,19 +861,6 @@ impl Playback {
         #[cfg(target_os = "linux")]
         self.sync_inhibit();
         cx.notify();
-    }
-
-    fn random_track_index(&self, current: usize, len: usize) -> usize {
-        let seed = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap_or_default()
-            .subsec_nanos() as usize;
-        let candidate = seed % (len - 1);
-        if candidate >= current {
-            candidate + 1
-        } else {
-            candidate
-        }
     }
 
     pub(super) fn set_volume(&mut self, volume: f32, cx: &mut Context<Self>) {

@@ -13,12 +13,11 @@ use gpui_component::{
 };
 
 use super::progress_view::{PlaybackProgressView, ProgressInput};
-use super::queue::RepeatMode;
 use super::{CadenceView, PLAYER_BAR_HEIGHT};
 use crate::design::ColorTheme;
 use crate::http::cached_image_source;
 use crate::icons::{MediaIcon, media_icon, media_icon_hsla};
-use crate::player::AudioPlayer;
+use crate::settings::RepeatMode;
 
 #[derive(PartialEq)]
 pub(super) struct PlayerInput {
@@ -464,44 +463,28 @@ impl Render for PlayerControlsView {
                             .justify_center()
                             .gap_1()
                             .child(
-                                div()
-                                    .relative()
-                                    .child(
-                                        Button::new("shuffle")
-                                            .ghost()
-                                            .rounded(px(999.))
-                                            .size(px(44.))
-                                            .p_0()
-                                            .tooltip("随机播放")
-                                            .toggled(self.input.shuffle)
-                                            .selected(self.input.shuffle)
-                                            .disabled(self.input.queue_empty)
-                                            .child(div().w(px(28.)).flex().justify_center().child(
-                                                media_icon(
-                                                    MediaIcon::Shuffle,
-                                                    if self.input.shuffle {
-                                                        icon_accent
-                                                    } else {
-                                                        icon_foreground
-                                                    },
-                                                    px(18.),
-                                                ),
-                                            ))
-                                            .on_click(cx.listener(|_, _, _, cx| {
-                                                cx.emit(PlayerAction::Shuffle)
-                                            })),
-                                    )
-                                    .when(self.input.shuffle, |this| {
-                                        this.child(
-                                            div()
-                                                .absolute()
-                                                .bottom(px(1.))
-                                                .left(px(21.))
-                                                .size(px(3.))
-                                                .rounded_full()
-                                                .bg(theme.primary),
-                                        )
-                                    }),
+                                Button::new("shuffle")
+                                    .ghost()
+                                    .rounded(px(999.))
+                                    .size(px(44.))
+                                    .p_0()
+                                    .tooltip("随机播放")
+                                    .toggled(self.input.shuffle)
+                                    .disabled(self.input.queue_empty)
+                                    .child(div().w(px(28.)).flex().justify_center().child(
+                                        media_icon(
+                                            MediaIcon::Shuffle,
+                                            if self.input.shuffle {
+                                                icon_accent
+                                            } else {
+                                                icon_foreground
+                                            },
+                                            px(18.),
+                                        ),
+                                    ))
+                                    .on_click(
+                                        cx.listener(|_, _, _, cx| cx.emit(PlayerAction::Shuffle)),
+                                    ),
                             )
                             .child(
                                 Button::new("previous")
@@ -564,48 +547,32 @@ impl Render for PlayerControlsView {
                                     ),
                             )
                             .child(
-                                div()
-                                    .relative()
-                                    .child(
-                                        Button::new("repeat")
-                                            .ghost()
-                                            .rounded(px(999.))
-                                            .size(px(44.))
-                                            .p_0()
-                                            .tooltip(self.input.repeat_mode.label())
-                                            .toggled(self.input.repeat_mode != RepeatMode::Off)
-                                            .selected(self.input.repeat_mode != RepeatMode::Off)
-                                            .disabled(self.input.queue_empty)
-                                            .child(div().w(px(28.)).flex().justify_center().child(
-                                                media_icon(
-                                                    if self.input.repeat_mode == RepeatMode::One {
-                                                        MediaIcon::RepeatOne
-                                                    } else {
-                                                        MediaIcon::Repeat
-                                                    },
-                                                    if self.input.repeat_mode != RepeatMode::Off {
-                                                        icon_accent
-                                                    } else {
-                                                        icon_foreground
-                                                    },
-                                                    px(18.),
-                                                ),
-                                            ))
-                                            .on_click(cx.listener(|_, _, _, cx| {
-                                                cx.emit(PlayerAction::Repeat)
-                                            })),
-                                    )
-                                    .when(self.input.repeat_mode != RepeatMode::Off, |this| {
-                                        this.child(
-                                            div()
-                                                .absolute()
-                                                .bottom(px(1.))
-                                                .left(px(21.))
-                                                .size(px(3.))
-                                                .rounded_full()
-                                                .bg(theme.primary),
-                                        )
-                                    }),
+                                Button::new("repeat")
+                                    .ghost()
+                                    .rounded(px(999.))
+                                    .size(px(44.))
+                                    .p_0()
+                                    .tooltip(self.input.repeat_mode.label())
+                                    .toggled(self.input.repeat_mode != RepeatMode::Off)
+                                    .disabled(self.input.queue_empty)
+                                    .child(div().w(px(28.)).flex().justify_center().child(
+                                        media_icon(
+                                            if self.input.repeat_mode == RepeatMode::One {
+                                                MediaIcon::RepeatOne
+                                            } else {
+                                                MediaIcon::Repeat
+                                            },
+                                            if self.input.repeat_mode != RepeatMode::Off {
+                                                icon_accent
+                                            } else {
+                                                icon_foreground
+                                            },
+                                            px(18.),
+                                        ),
+                                    ))
+                                    .on_click(
+                                        cx.listener(|_, _, _, cx| cx.emit(PlayerAction::Repeat)),
+                                    ),
                             ),
                     ),
             )
@@ -683,7 +650,8 @@ impl CadenceView {
                 .browser
                 .update(cx, |browser, cx| browser.toggle_current_track_liked(cx)),
             PlayerAction::Shuffle => self.playback.update(cx, |playback, cx| {
-                playback.state.shuffle = !playback.state.shuffle;
+                playback.state.set_shuffle(!playback.state.shuffle);
+                playback.persist_playback_options(cx);
                 #[cfg(target_os = "linux")]
                 playback.sync_mpris(false, cx);
                 cx.notify();
@@ -699,6 +667,7 @@ impl CadenceView {
                 .update(cx, |playback, cx| playback.play_next(false, cx)),
             PlayerAction::Repeat => self.playback.update(cx, |playback, cx| {
                 playback.state.repeat_mode = playback.state.repeat_mode.next();
+                playback.persist_playback_options(cx);
                 #[cfg(target_os = "linux")]
                 playback.sync_mpris(false, cx);
                 cx.notify();
@@ -782,12 +751,7 @@ impl CadenceView {
             show_pause: if self.playback.read(cx).state.load.track.is_some() {
                 self.playback.read(cx).state.load.autoplay
             } else {
-                self.playback
-                    .read(cx)
-                    .state
-                    .audio
-                    .as_deref()
-                    .is_some_and(AudioPlayer::is_playing)
+                self.playback.read(cx).state.is_advancing()
             },
             queue_empty: self
                 .playback

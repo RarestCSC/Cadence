@@ -175,8 +175,6 @@ impl CadenceView {
                 None
             }
         };
-        let playback_quality = settings.playback_quality;
-        let pending_playback_restore = settings.current_playback.clone();
         let account =
             cx.new(|_| Account::new(protocol_client.clone(), settings.client_guid.clone()));
 
@@ -196,9 +194,9 @@ impl CadenceView {
         let settings_page = cx.new(|cx| SettingsPage::new(preferences.clone(), window, cx));
         let lyrics = cx.new(|_| LyricsCache::new(lyric_disk_cache));
         let playlist_page_requests = SingleFlight::default();
-        let playback = cx.new(|_| {
+        let playback = cx.new(|cx| {
             Playback::new(
-                PlaybackState::new(audio, playback_quality, pending_playback_restore),
+                PlaybackState::new(audio, &preferences.read(cx).settings),
                 account.clone(),
                 preferences.clone(),
                 lyrics.clone(),
